@@ -37,6 +37,8 @@ class FlowMdEditorProvider {
         const fileBytes = await vscode.workspace.fs.readFile(document.uri);
         const b64 = Buffer.from(fileBytes).toString('base64');
         const defaultMode = vscode.workspace.getConfiguration('flowMdEnhance').get('defaultMode', 'live');
+        const fileDir = path.dirname(document.uri.fsPath);
+        const fileDirUri = webviewPanel.webview.asWebviewUri(vscode.Uri.file(fileDir)) + '/';
 
         webviewPanel.webview.html = `<!DOCTYPE html>
 <html lang="en">
@@ -52,7 +54,7 @@ class FlowMdEditorProvider {
 </head>
 <body>
     <div id="app" data-content="${b64}"></div>
-    <script>window.__DEFAULT_MODE__ = "${defaultMode}";</script>
+    <script>window.__DEFAULT_MODE__ = "${defaultMode}"; window.__FILE_DIR_URI__ = "${fileDirUri}";</script>
     <script src="${scriptUri}?v=${Date.now()}"></script>
 </body>
 </html>`;

@@ -120,6 +120,11 @@ window.addEventListener('message', e => {
 });
 
 // ── Block parser (with character offsets) ──────────────
+function resolveImgPaths(html) {
+    if (!window.__FILE_DIR_URI__) return html;
+    return html.replace(/(<img\s[^>]*src\s*=\s*["'])(?!data:|https?:|blob:)([^"']+)(["'])/gi, '$1' + window.__FILE_DIR_URI__ + '$2$3');
+}
+
 function parseBlocks(src) {
     const blocks = [];
     const lines = src.split('\n');
@@ -134,6 +139,7 @@ function parseBlocks(src) {
         const id = `b${blocks.length}`;
         let html = md.render(raw);
         html = DOMPurify.sanitize(html, purifyConfig);
+        html = resolveImgPaths(html);
         const trimmed = raw.trimStart();
         let type = 'paragraph';
         if (/^#{1,6}\s/.test(trimmed)) type = 'heading';
@@ -251,6 +257,7 @@ function renderLive() {
 function renderViewer() {
     let html = md.render(content);
     html = DOMPurify.sanitize(html, purifyConfig);
+    html = resolveImgPaths(html);
     app.innerHTML = toolbar() + searchBarHtml() + `<div class="editor-content viewer-mode"><div class="viewer-content">${html}</div></div>`;
     bindToolbar();
     bindSearch();
