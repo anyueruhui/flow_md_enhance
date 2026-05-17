@@ -109,8 +109,6 @@ function render() {
 
 function renderLive() {
     const blocks = parseBlocks(content);
-    // 保存当前滚动位置和焦点块
-    const scrollTop = app.closest('.editor-content')?.scrollTop || app.scrollTop || 0;
     let h = toolbar() + '<div class="editor-content live-preview">';
     for (const b of blocks) {
         if (b.id === focusedBlockId) {
@@ -121,15 +119,41 @@ function renderLive() {
     }
     h += '</div>';
     app.innerHTML = h;
-    // 恢复滚动位置
-    const contentEl = app.querySelector('.editor-content');
-    if (contentEl) contentEl.scrollTop = scrollTop;
-    // 如果刚从编辑模式退出（focusedBlockId 刚被清空），滚动到对应块
-    if (focusedBlockId) {
-        const el = app.querySelector(`[data-id="${focusedBlockId}"]`);
-        if (el) el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-    }
     bindLive();
+}
+
+// 局部替换：只把指定块从编辑态换成渲染态，不动其他 DOM，不丢滚动
+function unfocusBlock(blockId) {
+    const blocks = parseBlocks(content);
+    const block = blocks.find(b => b.id === blockId);
+    if (!block) return;
+
+    const oldEl = app.querySelector(`[data-id="${blockId}"]`);
+    if (!oldEl) return;
+
+    const newEl = document.createElement('div');
+    newEl.className = 'block block-rendered';
+    newEl.dataset.id = blockId;
+    newEl.innerHTML = `<div class="block-html">${block.html}</div>`;
+
+    oldEl.replaceWith(newEl);
+
+    // 重新绑定这一个块的事件
+    newEl.addEventListener('click', () => {
+        focusedBlockId = newEl.dataset.id;
+        const block2 = parseBlocks(content).find(b => b.id === newEl.dataset.id);
+        const editEl = document.createElement('div');
+        editEl.className = 'block block-focused';
+        editEl.dataset.id = newEl.dataset.id;
+        editEl.innerHTML = `<textarea class="block-ta" data-id="${newEl.dataset.id}" spellcheck="false">${esc(block2 ? block2.raw : '')}</textarea>`;
+        newEl.replaceWith(editEl);
+        const ta = editEl.querySelector('.block-ta');
+        autoResize(ta);
+        ta.focus();
+        bindBlockTa(ta);
+        bindCopyButtons();
+    });
+    bindCopyButtons();
 }
 
 function renderViewer() {
@@ -172,6 +196,32 @@ function bindCopyButtons() {
     });
 }
 
+function bindBlockTa(ta) {
+    ta.addEventListener('input', () => {
+        autoResize(ta);
+        applyBlockEdit(ta);
+    });
+    ta.addEventListener('blur', () => {
+        applyBlockEdit(ta);
+        focusedBlockId = null;
+        unfocusBlock(ta.dataset.id); // 局部替换，不重建整个 DOM
+    });
+    ta.addEventListener('keydown', e => {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.substring(0,s) + '    ' + ta.value.substring(en);
+            ta.selectionStart = ta.selectionEnd = s + 4;
+            applyBlockEdit(ta);
+        }
+        if (e.key === 'Escape') {
+            applyBlockEdit(ta);
+            focusedBlockId = null;
+            unfocusBlock(ta.dataset.id);
+        }
+    });
+}
+
 function bindLive() {
     bindToolbar();
     bindCopyButtons();
@@ -180,42 +230,24 @@ function bindLive() {
     app.querySelectorAll('.block-rendered').forEach(el => {
         el.addEventListener('click', () => {
             focusedBlockId = el.dataset.id;
-            renderLive();
-            const ta = app.querySelector(`textarea[data-id="${focusedBlockId}"]`);
-            if (ta) { ta.focus(); autoResize(ta); }
+            const block = parseBlocks(content).find(b => b.id === el.dataset.id);
+            const editEl = document.createElement('div');
+            editEl.className = 'block block-focused';
+            editEl.dataset.id = el.dataset.id;
+            editEl.innerHTML = `<textarea class="block-ta" data-id="${el.dataset.id}" spellcheck="false">${esc(block ? block.raw : '')}</textarea>`;
+            el.replaceWith(editEl);
+            const ta = editEl.querySelector('.block-ta');
+            autoResize(ta);
+            ta.focus();
+            bindBlockTa(ta);
+            bindCopyButtons();
         });
     });
 
-    // Textarea editing
+    // Textarea editing (首次 renderLive 时)
     app.querySelectorAll('.block-ta').forEach(ta => {
         autoResize(ta);
-        ta.addEventListener('input', () => {
-            autoResize(ta);
-            applyBlockEdit(ta);
-        });
-        ta.addEventListener('blur', () => {
-            applyBlockEdit(ta);
-            const blurBlockId = ta.dataset.id; // 记住失焦的块
-            focusedBlockId = null;
-            renderLive();
-            // 滚动到刚失焦的渲染块
-            const el = app.querySelector(`[data-id="${blurBlockId}"]`);
-            if (el) el.scrollIntoView({ block: 'center', behavior: 'instant' });
-        });
-        ta.addEventListener('keydown', e => {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                const s = ta.selectionStart, en = ta.selectionEnd;
-                ta.value = ta.value.substring(0,s) + '    ' + ta.value.substring(en);
-                ta.selectionStart = ta.selectionEnd = s + 4;
-                applyBlockEdit(ta);
-            }
-            if (e.key === 'Escape') {
-                applyBlockEdit(ta);
-                focusedBlockId = null;
-                renderLive();
-            }
-        });
+        bindBlockTa(ta);
     });
 }
 
