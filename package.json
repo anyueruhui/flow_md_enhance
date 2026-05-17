@@ -2,8 +2,9 @@
   "name": "flow-md-enhance",
   "displayName": "FlowMD Enhance",
   "description": "WYSIWYG Markdown Editor with full HTML tag support for VS Code",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "local",
+  "icon": "md_logo.png",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -15,6 +16,22 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "FlowMD Enhance",
+      "properties": {
+        "flowMdEnhance.defaultMode": {
+          "type": "string",
+          "default": "live",
+          "enum": ["live", "viewer", "source"],
+          "enumDescriptions": [
+            "Live Preview — block-level editing",
+            "Viewer — read-only rendered preview",
+            "Source — raw Markdown editing"
+          ],
+          "description": "Default editing mode when opening a Markdown file"
+        }
+      }
+    },
     "customEditors": [
       {
         "viewType": "flowMdEnhance.editor",

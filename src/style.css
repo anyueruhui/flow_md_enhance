@@ -122,13 +122,14 @@ html, body {
 
 /* Tables */
 .block-html table, .viewer-content table {
-    width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .95em;
+    width: fit-content; max-width: 100%;
+    border-collapse: collapse; margin: 12px 0; font-size: .95em;
 }
 .block-html th, .viewer-content th {
-    background: var(--toolbar-bg); font-weight: 600; text-align: left;
-    padding: 8px 12px; border: 1px solid var(--border);
+    background: var(--toolbar-bg); font-weight: 600; text-align: center;
+    padding: 8px 18px; border: 1px solid var(--border);
 }
-.block-html td, .viewer-content td { padding: 8px 12px; border: 1px solid var(--border); }
+.block-html td, .viewer-content td { padding: 8px 18px; border: 1px solid var(--border); }
 .block-html tr:hover td, .viewer-content tr:hover td { background: var(--hover); }
 
 /* ── ★ HTML Tag Support (core feature) ─────────── */

@@ -41,7 +41,8 @@ const purifyConfig = {
 };
 
 // ── State ──────────────────────────────────────────────
-let mode = 'live';
+const _initMode = ['live', 'viewer', 'source'].includes(window.__DEFAULT_MODE__) ? window.__DEFAULT_MODE__ : 'live';
+let mode = _initMode;
 let content = '';
 let focusedBlockId = null;
 let focusedBlockLen = 0;
@@ -86,7 +87,10 @@ function redo() {
 }
 
 const app = document.getElementById('app');
-const vscodeApi = window.acquireVscodeApi ? window.acquireVscodeApi() : null;
+let vscodeApi = null;
+try {
+    vscodeApi = window.acquireVsCodeApi ? window.acquireVsCodeApi() : null;
+} catch(e) {}
 
 // ── Save with debounce ────────────────────────────────
 let saveTimer = null;

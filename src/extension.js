@@ -36,6 +36,7 @@ class FlowMdEditorProvider {
         // M5: read file bytes → base64 directly (skip unnecessary string decode/re-encode)
         const fileBytes = await vscode.workspace.fs.readFile(document.uri);
         const b64 = Buffer.from(fileBytes).toString('base64');
+        const defaultMode = vscode.workspace.getConfiguration('flowMdEnhance').get('defaultMode', 'live');
 
         webviewPanel.webview.html = `<!DOCTYPE html>
 <html lang="en">
@@ -51,7 +52,8 @@ class FlowMdEditorProvider {
 </head>
 <body>
     <div id="app" data-content="${b64}"></div>
-    <script src="${scriptUri}"></script>
+    <script>window.__DEFAULT_MODE__ = "${defaultMode}";</script>
+    <script src="${scriptUri}?v=${Date.now()}"></script>
 </body>
 </html>`;
 
@@ -61,13 +63,8 @@ class FlowMdEditorProvider {
         webviewPanel.webview.onDidReceiveMessage(async (msg) => {
             if (msg.type === 'save') {
                 this.lastSavedContent.set(uriKey, msg.content);
-                const edit = new vscode.WorkspaceEdit();
-                const lastLine = document.lineCount - 1;
-                const lastChar = document.lineAt(lastLine).text.length;
-                const fullRange = new vscode.Range(0, 0, lastLine, lastChar);
-                edit.replace(document.uri, fullRange, msg.content);
-                await vscode.workspace.applyEdit(edit);
-                await document.save();
+                const encoder = new TextEncoder();
+                await vscode.workspace.fs.writeFile(document.uri, encoder.encode(msg.content));
             }
         });
 
