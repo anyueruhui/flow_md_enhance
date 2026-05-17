@@ -1,6 +1,6 @@
 # FlowMD Enhance
 
-[中文文档](README_ZH.md)
+[![GitHub](https://img.shields.io/badge/GitHub-Repo-blue?logo=github)](https://github.com/anyueruhui/flow_md_enhance) [中文文档](README_ZH.md)
 
 A WYSIWYG Markdown editor for VS Code with full HTML tag support, block-level editing, and integrated page search.
 
@@ -66,6 +66,10 @@ Detects external file changes (e.g. git pull) and reloads content automatically,
 ## Requirements
 
 - VS Code 1.85.0+
+
+## Acknowledgments
+
+Inspired by [FlowMD](https://marketplace.visualstudio.com/items?itemName=hephaestus-workers.flow-md), with additional HTML tag support.
 
 ## License
 
