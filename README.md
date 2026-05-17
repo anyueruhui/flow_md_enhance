@@ -53,35 +53,27 @@ Fenced code blocks with syntax header and one-click copy button.
 
 Detects external file changes (e.g. git pull) and reloads content automatically, with self-save filtering to prevent feedback loops.
 
-## Getting Started
+### Default Mode Setting
 
-### Build
+Configure which mode opens by default via VS Code Settings: search `flowMdEnhance.defaultMode`, choose `live`, `viewer`, or `source`.
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `bash dist.sh` | Build + package VSIX to `dist/` |
+| `bash publish.sh` | Auto bump version + build + publish to Marketplace |
+| `bash publish.sh --skip-bump` | Publish without version bump |
+| `node test/run.js` | Run 91 tests |
+
+### Manual Build
 
 ```bash
 npm install
 node build.js
-```
-
-### Package
-
-```bash
 npx vsce package --no-dependencies
+code --install-extension flow-md-enhance-0.2.0.vsix
 ```
-
-Installs as `flow-md-enhance-0.1.0.vsix`. Install via:
-
-```bash
-code --install-extension flow-md-enhance-0.1.0.vsix
-```
-
-### Test
-
-```bash
-# Requires jsdom, markdown-it, markdown-it-task-checkbox in /tmp/fmd-build/node_modules
-node test/run.js
-```
-
-91 tests covering: Markdown rendering, Base64 encoding, webview loading, HTML tag support, mode switching, duplicate block editing, DOMPurify allowlist, watcher filtering, event delegation, save debounce, and search functionality.
 
 ## Architecture
 
