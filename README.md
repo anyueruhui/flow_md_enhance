@@ -4,7 +4,7 @@
 
 A WYSIWYG Markdown editor for VS Code with full HTML tag support, block-level editing, and integrated page search.
 
-![FlowMD Enhance](show_case.png)
+![FlowMD Enhance](https://github.com/anyueruhui/flow_md_enhance/raw/main/show_case.png)
 
 ## Features
 

@@ -4,7 +4,7 @@
 
 VS Code 所见即所得 Markdown 编辑器，支持完整 HTML 标签、块级编辑和页面搜索。
 
-![FlowMD Enhance](show_case.png)
+![FlowMD Enhance](https://github.com/anyueruhui/flow_md_enhance/raw/main/show_case.png)
 
 ## 功能特性
 
