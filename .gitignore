@@ -1,0 +1,8 @@
+node_modules/
+out/
+*.vsix
+*.tgz
+package-lock.json
+test.md
+webview/node_modules/
+webview/package-lock.json

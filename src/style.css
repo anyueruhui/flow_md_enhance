@@ -1,0 +1,161 @@
+/* ═══════════════════════════════════════════════════════
+   FlowMD Enhance — Stylesheet
+   ═══════════════════════════════════════════════════════ */
+
+:root {
+    --bg: var(--vscode-editor-background, #1e1e1e);
+    --fg: var(--vscode-editor-foreground, #d4d4d4);
+    --muted: var(--vscode-descriptionForeground, #888);
+    --accent: var(--vscode-focusBorder, #007acc);
+    --border: var(--vscode-panel-border, #3c3c3c);
+    --card: var(--vscode-editor-background, #252526);
+    --hover: var(--vscode-list-hoverBackground, #2a2d2e);
+    --code-bg: var(--vscode-textCodeBlock-background, #1a1a1a);
+    --toolbar-bg: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+    --link: var(--vscode-textLink-foreground, #3794ff);
+    --quote-border: var(--vscode-textBlockQuote-border, #007acc);
+    --quote-bg: var(--vscode-textBlockQuote-background, #1a1a1a);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    height: 100%; overflow: hidden;
+    font-family: var(--vscode-editor-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+    font-size: var(--vscode-editor-font-size, 14px);
+    line-height: 1.6; color: var(--fg); background: var(--bg);
+}
+
+#app { height: 100%; display: flex; flex-direction: column; }
+
+/* ── Toolbar ─────────────────────────────────────── */
+.editor-toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 16px; background: var(--toolbar-bg);
+    border-bottom: 1px solid var(--border); flex-shrink: 0; user-select: none;
+}
+.toolbar-title { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
+.toolbar-right { display: flex; gap: 4px; }
+.mode-btn {
+    background: transparent; border: 1px solid transparent; color: var(--muted);
+    padding: 3px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all .15s;
+}
+.mode-btn:hover { background: var(--hover); color: var(--fg); }
+.mode-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── Content Area ────────────────────────────────── */
+.editor-content {
+    flex: 1; overflow-y: auto; padding: 24px 48px;
+}
+.editor-content::-webkit-scrollbar { width: 10px; }
+.editor-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+
+.source-mode { padding: 0 !important; }
+
+/* ── Blocks (Live Preview) ───────────────────────── */
+.block { margin: 2px 0; border-radius: 4px; border: 1px solid transparent; transition: all .12s; }
+.block-rendered { cursor: text; padding: 4px 8px; }
+.block-rendered:hover { background: var(--hover); border-color: var(--border); }
+.block-focused { border-color: var(--accent); background: var(--code-bg); }
+
+/* ── Textareas ───────────────────────────────────── */
+.block-ta {
+    width: 100%; min-height: 36px; padding: 8px 12px;
+    font-family: var(--vscode-editor-font-family, 'Consolas', monospace);
+    font-size: var(--vscode-editor-font-size, 14px); line-height: 1.6;
+    color: var(--fg); background: transparent; border: none; outline: none; resize: none; overflow: hidden;
+}
+.source-ta {
+    width: 100%; height: 100%; padding: 16px;
+    font-family: var(--vscode-editor-font-family, 'Consolas', monospace);
+    font-size: var(--vscode-editor-font-size, 14px); line-height: 1.6;
+    color: var(--fg); background: var(--bg); border: none; outline: none; resize: none;
+}
+
+/* ── Markdown Rendered Content ───────────────────── */
+.block-html, .viewer-content {
+    word-wrap: break-word; overflow-wrap: break-word;
+}
+.block-html h1, .viewer-content h1,
+.block-html h2, .viewer-content h2 { border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.block-html h1, .viewer-content h1 { font-size: 2em; margin: 16px 0 8px; font-weight: 700; }
+.block-html h2, .viewer-content h2 { font-size: 1.6em; margin: 14px 0 6px; font-weight: 600; }
+.block-html h3, .viewer-content h3 { font-size: 1.3em; margin: 12px 0 6px; font-weight: 600; }
+.block-html h4, .viewer-content h4 { font-size: 1.1em; margin: 10px 0 4px; font-weight: 600; }
+.block-html p, .viewer-content p { margin: 6px 0; line-height: 1.7; }
+.block-html a, .viewer-content a { color: var(--link); text-decoration: none; }
+.block-html a:hover, .viewer-content a:hover { text-decoration: underline; }
+.block-html strong, .viewer-content strong { font-weight: 700; }
+.block-html em, .viewer-content em { font-style: italic; }
+.block-html del, .viewer-content del { text-decoration: line-through; opacity: .7; }
+
+/* Lists */
+.block-html ul, .viewer-content ul,
+.block-html ol, .viewer-content ol { padding-left: 24px; margin: 6px 0; }
+.block-html li, .viewer-content li { margin: 2px 0; }
+
+/* Blockquote */
+.block-html blockquote, .viewer-content blockquote {
+    border-left: 3px solid var(--quote-border); background: var(--quote-bg);
+    padding: 8px 16px; margin: 8px 0; border-radius: 0 4px 4px 0; color: var(--muted);
+}
+
+/* HR */
+.block-html hr, .viewer-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* Images */
+.block-html img, .viewer-content img { max-width: 100%; border-radius: 6px; margin: 8px 0; }
+
+/* Inline code */
+.block-html code:not(.code-block code), .viewer-content code:not(.code-block code) {
+    background: var(--code-bg); padding: 2px 6px; border-radius: 3px;
+    font-family: 'Consolas', monospace; font-size: .9em;
+}
+
+/* Tables */
+.block-html table, .viewer-content table {
+    width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .95em;
+}
+.block-html th, .viewer-content th {
+    background: var(--toolbar-bg); font-weight: 600; text-align: left;
+    padding: 8px 12px; border: 1px solid var(--border);
+}
+.block-html td, .viewer-content td { padding: 8px 12px; border: 1px solid var(--border); }
+.block-html tr:hover td, .viewer-content tr:hover td { background: var(--hover); }
+
+/* ── ★ HTML Tag Support (core feature) ─────────── */
+.block-html mark, .viewer-content mark { background: rgba(255,200,0,.3); padding: 1px 4px; border-radius: 2px; }
+.block-html kbd, .viewer-content kbd {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 6px; font-size: .85em; font-family: monospace;
+}
+.block-html details, .viewer-content details { margin: 8px 0; border: 1px solid var(--border); border-radius: 4px; padding: 8px; }
+.block-html summary, .viewer-content summary { cursor: pointer; font-weight: 500; padding: 4px 8px; }
+.block-html sub, .viewer-content sub,
+.block-html sup, .viewer-content sup { font-size: .75em; }
+.block-html abbr[title], .viewer-content abbr[title] { text-decoration: underline dotted; cursor: help; }
+
+/* All inline styles pass through — color, background, font-size, text-align, etc. */
+
+/* ── Code Blocks ─────────────────────────────────── */
+.code-block { margin: 8px 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+.code-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 12px; background: var(--toolbar-bg); border-bottom: 1px solid var(--border);
+}
+.code-lang { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.code-copy {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 11px; cursor: pointer; padding: 2px 8px; border-radius: 3px;
+}
+.code-copy:hover { background: var(--hover); color: var(--fg); }
+.code-content {
+    margin: 0 !important; padding: 12px 16px !important; background: var(--code-bg) !important; overflow-x: auto;
+}
+.code-content code { font-family: 'Consolas', monospace; font-size: .9em; line-height: 1.5; }
+
+/* ── Viewer Mode ─────────────────────────────────── */
+.viewer-content { max-width: 800px; margin: 0 auto; }
+
+/* ── Responsive ──────────────────────────────────── */
+@media (max-width: 768px) { .editor-content { padding: 12px 16px; } }
