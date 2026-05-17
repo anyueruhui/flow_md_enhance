@@ -238,7 +238,9 @@ function bindBlockTa(ta) {
     // Fix #6: blur/click 竞态 — 延迟处理让 click 事件先触发
     ta.addEventListener('blur', () => {
         setTimeout(() => {
-            if (focusedBlockId === ta.dataset.id) return; // 用户点击了另一个块
+            // 如果 focusedBlockId 被设为另一个块（用户点击了别的块），跳过 unfocus
+            // 如果 focusedBlockId 还是当前块或者为 null，正常 unfocus
+            if (focusedBlockId !== null && focusedBlockId !== ta.dataset.id) return;
             applyBlockEdit(ta);
             focusedBlockId = null;
             unfocusBlock(ta.dataset.id);
