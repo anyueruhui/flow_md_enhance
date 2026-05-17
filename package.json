@@ -3,7 +3,7 @@
   "displayName": "FlowMD Enhance",
   "description": "WYSIWYG Markdown Editor with full HTML tag support for VS Code",
   "version": "0.2.0",
-  "publisher": "local",
+  "publisher": "linlucifer",
   "icon": "md_logo.png",
   "engines": {
     "vscode": "^1.85.0"
