@@ -109,6 +109,8 @@ function render() {
 
 function renderLive() {
     const blocks = parseBlocks(content);
+    // 保存当前滚动位置和焦点块
+    const scrollTop = app.closest('.editor-content')?.scrollTop || app.scrollTop || 0;
     let h = toolbar() + '<div class="editor-content live-preview">';
     for (const b of blocks) {
         if (b.id === focusedBlockId) {
@@ -119,6 +121,14 @@ function renderLive() {
     }
     h += '</div>';
     app.innerHTML = h;
+    // 恢复滚动位置
+    const contentEl = app.querySelector('.editor-content');
+    if (contentEl) contentEl.scrollTop = scrollTop;
+    // 如果刚从编辑模式退出（focusedBlockId 刚被清空），滚动到对应块
+    if (focusedBlockId) {
+        const el = app.querySelector(`[data-id="${focusedBlockId}"]`);
+        if (el) el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    }
     bindLive();
 }
 
@@ -185,8 +195,12 @@ function bindLive() {
         });
         ta.addEventListener('blur', () => {
             applyBlockEdit(ta);
+            const blurBlockId = ta.dataset.id; // 记住失焦的块
             focusedBlockId = null;
             renderLive();
+            // 滚动到刚失焦的渲染块
+            const el = app.querySelector(`[data-id="${blurBlockId}"]`);
+            if (el) el.scrollIntoView({ block: 'center', behavior: 'instant' });
         });
         ta.addEventListener('keydown', e => {
             if (e.key === 'Tab') {
