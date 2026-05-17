@@ -4,14 +4,12 @@
  */
 
 // ── markdown-it (bundled inline by build.js as var MarkdownIt) ──────
-// In standalone mode, fall back to require
 var MarkdownIt = typeof MarkdownIt !== 'undefined' ? MarkdownIt : require('markdown-it');
 var TaskCheckbox = typeof TaskCheckbox !== 'undefined' ? TaskCheckbox : require('markdown-it-task-checkbox');
-// Fix #3: DOMPurify 防 XSS
 var DOMPurify = typeof DOMPurify !== 'undefined' ? DOMPurify : require('dompurify');
 
 const md = new MarkdownIt({
-    html: true,         // ★ 核心特性：启用 HTML 标签渲染
+    html: true,
     xhtmlOut: false,
     breaks: true,
     linkify: true,
@@ -24,52 +22,74 @@ const md = new MarkdownIt({
 }).use(TaskCheckbox);
 md.enable('table');
 
-// ── DOMPurify config (Fix #3) ──────────────────────────
+// ── DOMPurify config ──────────────────────────────────
 const purifyConfig = {
-    ALLOWED_TAGS: ['strong','em','s','mark','kbd','sub','sup','font','span','details','summary','input','label','a','img','br','hr','p','div','h1','h2','h3','h4','h5','h6','ul','ol','li','table','thead','tbody','tr','th','td','blockquote','pre','code','del','ins','dl','dt','dd','figure','figcaption','abbr'],
-    ALLOWED_ATTR: ['href','src','alt','title','class','id','style','color','type','checked','disabled','for','data-*','target','rel'],
+    ALLOWED_TAGS: [
+        'strong','em','b','i','u','s','mark','kbd','sub','sup',
+        'font','span','details','summary','input','label','a','img','br','hr',
+        'p','div','h1','h2','h3','h4','h5','h6','ul','ol','li',
+        'table','thead','tbody','tr','th','td','blockquote','pre','code',
+        'del','ins','dl','dt','dd','figure','figcaption','abbr',
+        'ruby','rt','rp','bdi','bdo','cite','dfn','var','samp','small','wbr',
+    ],
+    ALLOWED_ATTR: [
+        'href','src','alt','title','class','id','style','color','type',
+        'checked','disabled','for','data-*','target','rel',
+        'colspan','rowspan','width','height',
+    ],
     ALLOW_DATA_ATTR: true
 };
 
 // ── State ──────────────────────────────────────────────
-let mode = 'live'; // live | viewer | source
+let mode = 'live';
 let content = '';
 let focusedBlockId = null;
-// Fix #2: 用 Map 追踪每个块进入编辑态时的原始 raw 内容，取代递增 ID 定位
-const blockRawMap = new Map(); // blockId -> original raw content
+let focusedBlockLen = 0;
 
 const app = document.getElementById('app');
-
-// ── VS Code API ────────────────────────────────────────
 const vscodeApi = window.acquireVscodeApi ? window.acquireVscodeApi() : null;
 
+// ── Save with debounce ────────────────────────────────
+let saveTimer = null;
 function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+        if (vscodeApi) vscodeApi.postMessage({ type: 'save', content });
+    }, 300);
+}
+function saveImmediate() {
+    clearTimeout(saveTimer);
     if (vscodeApi) vscodeApi.postMessage({ type: 'save', content });
 }
 
-// 接收来自 extension 的消息
+// ── Receive extension messages ────────────────────────
 window.addEventListener('message', e => {
     const msg = e.data;
     if (!msg) return;
     if (msg.type === 'init' || msg.type === 'update') {
-        content = msg.content || '';
+        const newContent = msg.content || '';
+        if (newContent === content) return;
+        content = newContent;
+        focusedBlockId = null;
         render();
     }
 });
 
-// ── Block parser ───────────────────────────────────────
+// ── Block parser (with character offsets) ──────────────
 function parseBlocks(src) {
     const blocks = [];
     const lines = src.split('\n');
     let buf = [];
     let inCode = false;
+    let offset = 0;
+    let bufStart = -1;
 
     const flush = () => {
         if (buf.length === 0) return;
         const raw = buf.join('\n');
         const id = `b${blocks.length}`;
         let html = md.render(raw);
-        html = DOMPurify.sanitize(html, purifyConfig); // Fix #3: sanitize
+        html = DOMPurify.sanitize(html, purifyConfig);
         const trimmed = raw.trimStart();
         let type = 'paragraph';
         if (/^#{1,6}\s/.test(trimmed)) type = 'heading';
@@ -79,33 +99,58 @@ function parseBlocks(src) {
         else if (trimmed.startsWith('>')) type = 'blockquote';
         else if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(trimmed)) type = 'hr';
         else if (/^<[a-zA-Z]/.test(trimmed)) type = 'html';
-        blocks.push({ id, raw, html, type });
+        blocks.push({ id, raw, html, type, start: bufStart, end: bufStart + raw.length });
         buf = [];
+        bufStart = -1;
     };
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
         if (line.trimStart().startsWith('```') || line.trimStart().startsWith('~~~')) {
-            if (!inCode) { flush(); inCode = true; }
-            else { buf.push(line); flush(); inCode = false; continue; }
-            buf.push(line); continue;
+            if (!inCode) {
+                flush();
+                bufStart = offset;
+                buf.push(line);
+                inCode = true;
+            } else {
+                buf.push(line);
+                flush();
+                inCode = false;
+            }
+            offset += line.length + 1;
+            continue;
         }
-        if (inCode) { buf.push(line); continue; }
-        if (line.trim() === '') { flush(); continue; }
+        if (inCode) {
+            if (buf.length === 0) bufStart = offset;
+            buf.push(line);
+            offset += line.length + 1;
+            continue;
+        }
+        if (line.trim() === '') {
+            flush();
+            offset += line.length + 1;
+            continue;
+        }
         if (/^#{1,6}\s/.test(line)) {
             flush();
             let h = md.render(line);
-            h = DOMPurify.sanitize(h, purifyConfig); // Fix #3: sanitize
-            blocks.push({ id:`b${blocks.length}`, raw:line, html:h, type:'heading' });
+            h = DOMPurify.sanitize(h, purifyConfig);
+            blocks.push({ id:`b${blocks.length}`, raw:line, html:h, type:'heading', start:offset, end:offset + line.length });
+            offset += line.length + 1;
             continue;
         }
         if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line.trim())) {
             flush();
             let h = md.render(line);
-            h = DOMPurify.sanitize(h, purifyConfig); // Fix #3: sanitize
-            blocks.push({ id:`b${blocks.length}`, raw:line, html:h, type:'hr' });
+            h = DOMPurify.sanitize(h, purifyConfig);
+            blocks.push({ id:`b${blocks.length}`, raw:line, html:h, type:'hr', start:offset, end:offset + line.length });
+            offset += line.length + 1;
             continue;
         }
+        if (buf.length === 0) bufStart = offset;
         buf.push(line);
+        offset += line.length + 1;
     }
     flush();
     return blocks;
@@ -136,7 +181,7 @@ function renderLive() {
     let h = toolbar() + '<div class="editor-content live-preview">';
     for (const b of blocks) {
         if (b.id === focusedBlockId) {
-            blockRawMap.set(b.id, b.raw); // Fix #2: 记住原始 raw
+            focusedBlockLen = b.raw.length;
             h += `<div class="block block-focused" data-id="${b.id}"><textarea class="block-ta" data-id="${b.id}" spellcheck="false">${esc(b.raw)}</textarea></div>`;
         } else {
             h += `<div class="block block-rendered" data-id="${b.id}"><div class="block-html">${b.html}</div></div>`;
@@ -144,57 +189,14 @@ function renderLive() {
     }
     h += '</div>';
     app.innerHTML = h;
-    bindLive();
-}
-
-// 局部替换：只把指定块从编辑态换成渲染态，不动其他 DOM，不丢滚动
-// Fix #2: 通过 raw 内容匹配而非递增 ID 查找块
-function unfocusBlock(blockId) {
-    const currentRaw = blockRawMap.get(blockId);
-    blockRawMap.delete(blockId);
-
-    const blocks = parseBlocks(content);
-    // Fix #2: 优先用 raw 内容匹配，回退到 ID 匹配
-    const block = currentRaw
-        ? blocks.find(b => b.raw === currentRaw)
-        : blocks.find(b => b.id === blockId);
-    if (!block) return;
-
-    const oldEl = app.querySelector(`[data-id="${blockId}"]`);
-    if (!oldEl) return;
-
-    const newEl = document.createElement('div');
-    newEl.className = 'block block-rendered';
-    newEl.dataset.id = block.id;
-    newEl.innerHTML = `<div class="block-html">${block.html}</div>`;
-
-    oldEl.replaceWith(newEl);
-
-    // 重新绑定这一个块的事件
-    newEl.addEventListener('click', () => {
-        focusedBlockId = newEl.dataset.id;
-        const block2 = parseBlocks(content).find(b => b.id === newEl.dataset.id);
-        if (block2) blockRawMap.set(block2.id, block2.raw); // Fix #2: 记住 raw
-        const editEl = document.createElement('div');
-        editEl.className = 'block block-focused';
-        editEl.dataset.id = newEl.dataset.id;
-        editEl.innerHTML = `<textarea class="block-ta" data-id="${newEl.dataset.id}" spellcheck="false">${esc(block2 ? block2.raw : '')}</textarea>`;
-        newEl.replaceWith(editEl);
-        const ta = editEl.querySelector('.block-ta');
-        autoResize(ta);
-        ta.focus();
-        bindBlockTa(ta);
-        bindCopyButtons();
-    });
-    bindCopyButtons();
+    bindLive(blocks);
 }
 
 function renderViewer() {
     let html = md.render(content);
-    html = DOMPurify.sanitize(html, purifyConfig); // Fix #3: sanitize
+    html = DOMPurify.sanitize(html, purifyConfig);
     app.innerHTML = toolbar() + `<div class="editor-content viewer-mode"><div class="viewer-content">${html}</div></div>`;
     bindToolbar();
-    bindCopyButtons();
 }
 
 function renderSource() {
@@ -204,13 +206,94 @@ function renderSource() {
     ta.addEventListener('input', () => { content = ta.value; save(); });
 }
 
+// ── Block editing ──────────────────────────────────────
+function focusBlock(blockId) {
+    const blocks = parseBlocks(content);
+    const block = blocks.find(b => b.id === blockId);
+    if (!block) return;
+
+    const blockOffset = block.start;
+    focusedBlockId = blockId;
+    focusedBlockLen = block.raw.length;
+
+    const oldEl = app.querySelector(`[data-id="${blockId}"]`);
+    if (!oldEl) return;
+
+    const editEl = document.createElement('div');
+    editEl.className = 'block block-focused';
+    editEl.dataset.id = blockId;
+    editEl.innerHTML = `<textarea class="block-ta" data-id="${blockId}" spellcheck="false">${esc(block.raw)}</textarea>`;
+    oldEl.replaceWith(editEl);
+
+    const ta = editEl.querySelector('.block-ta');
+    autoResize(ta);
+    ta.focus();
+    setupTextarea(ta, blockOffset);
+}
+
+function setupTextarea(ta, blockOffset) {
+    ta.addEventListener('input', () => {
+        autoResize(ta);
+        const newRaw = ta.value;
+        content = content.slice(0, blockOffset) + newRaw + content.slice(blockOffset + focusedBlockLen);
+        focusedBlockLen = newRaw.length;
+        save();
+    });
+
+    ta.addEventListener('blur', () => {
+        setTimeout(() => {
+            const clickedAnother = focusedBlockId !== null && focusedBlockId !== ta.dataset.id;
+            if (!clickedAnother) {
+                focusedBlockId = null;
+            }
+            unfocusTa(ta, blockOffset);
+        }, 50);
+    });
+
+    ta.addEventListener('keydown', e => {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.substring(0, s) + '    ' + ta.value.substring(en);
+            ta.selectionStart = ta.selectionEnd = s + 4;
+            const newRaw = ta.value;
+            content = content.slice(0, blockOffset) + newRaw + content.slice(blockOffset + focusedBlockLen);
+            focusedBlockLen = newRaw.length;
+            save();
+        }
+        if (e.key === 'Escape') {
+            focusedBlockId = null;
+            unfocusTa(ta, blockOffset);
+        }
+    });
+}
+
+function unfocusTa(ta, blockOffset) {
+    const currentBlocks = parseBlocks(content);
+    const block = currentBlocks.find(b => b.start === blockOffset);
+    if (!block) return;
+
+    const oldEl = ta.closest('.block');
+    if (!oldEl) return;
+
+    const newEl = document.createElement('div');
+    newEl.className = 'block block-rendered';
+    newEl.dataset.id = block.id;
+    newEl.innerHTML = `<div class="block-html">${block.html}</div>`;
+    oldEl.replaceWith(newEl);
+
+    newEl.addEventListener('click', () => {
+        focusBlock(block.id);
+    });
+}
+
 // ── Event binding ──────────────────────────────────────
 function bindToolbar() {
     app.querySelectorAll('.mode-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (mode === 'source') {
                 const ta = app.querySelector('.source-ta');
-                if (ta) { content = ta.value; save(); }
+                if (ta) { content = ta.value; saveImmediate(); }
             }
             mode = btn.dataset.mode;
             focusedBlockId = null;
@@ -219,91 +302,25 @@ function bindToolbar() {
     });
 }
 
-function bindCopyButtons() {
-    app.querySelectorAll('.code-copy').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const code = btn.closest('.code-block').querySelector('code').textContent;
-            navigator.clipboard.writeText(code);
-            btn.textContent = 'Copied!';
-            setTimeout(() => btn.textContent = 'Copy', 1500);
-        });
-    });
-}
-
-function bindBlockTa(ta) {
-    ta.addEventListener('input', () => {
-        autoResize(ta);
-        applyBlockEdit(ta);
-    });
-    // Fix #6: blur/click 竞态 — 延迟处理让 click 事件先触发
-    ta.addEventListener('blur', () => {
-        setTimeout(() => {
-            // 如果 focusedBlockId 被设为另一个块（用户点击了别的块），跳过 unfocus
-            // 如果 focusedBlockId 还是当前块或者为 null，正常 unfocus
-            if (focusedBlockId !== null && focusedBlockId !== ta.dataset.id) return;
-            applyBlockEdit(ta);
-            focusedBlockId = null;
-            unfocusBlock(ta.dataset.id);
-        }, 50);
-    });
-    ta.addEventListener('keydown', e => {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            const s = ta.selectionStart, en = ta.selectionEnd;
-            ta.value = ta.value.substring(0,s) + '    ' + ta.value.substring(en);
-            ta.selectionStart = ta.selectionEnd = s + 4;
-            applyBlockEdit(ta);
-        }
-        if (e.key === 'Escape') {
-            applyBlockEdit(ta);
-            focusedBlockId = null;
-            unfocusBlock(ta.dataset.id);
-        }
-    });
-}
-
-function bindLive() {
+function bindLive(blocks) {
     bindToolbar();
-    bindCopyButtons();
 
-    // Click rendered block → focus
     app.querySelectorAll('.block-rendered').forEach(el => {
         el.addEventListener('click', () => {
-            focusedBlockId = el.dataset.id;
-            const block = parseBlocks(content).find(b => b.id === el.dataset.id);
-            if (block) blockRawMap.set(block.id, block.raw); // Fix #2: 记住 raw
-            const editEl = document.createElement('div');
-            editEl.className = 'block block-focused';
-            editEl.dataset.id = el.dataset.id;
-            editEl.innerHTML = `<textarea class="block-ta" data-id="${el.dataset.id}" spellcheck="false">${esc(block ? block.raw : '')}</textarea>`;
-            el.replaceWith(editEl);
-            const ta = editEl.querySelector('.block-ta');
-            autoResize(ta);
-            ta.focus();
-            bindBlockTa(ta);
-            bindCopyButtons();
+            focusBlock(el.dataset.id);
         });
     });
 
-    // Textarea editing (首次 renderLive 时)
-    app.querySelectorAll('.block-ta').forEach(ta => {
-        autoResize(ta);
-        bindBlockTa(ta);
-    });
-}
-
-// Fix #1: applyBlockEdit 保留原始分隔符 — 直接在 content 中替换原始 raw
-function applyBlockEdit(ta) {
-    const bid = ta.dataset.id;
-    const newRaw = ta.value;
-    const originalRaw = blockRawMap.get(bid);
-    if (originalRaw !== undefined) {
-        // 直接在 content 中用字符串替换，保留原始分隔符
-        content = content.replace(originalRaw, newRaw);
-        // 更新追踪的 raw 为新值，供后续 input 事件使用
-        blockRawMap.set(bid, newRaw);
+    if (focusedBlockId) {
+        const ta = app.querySelector(`.block-ta[data-id="${focusedBlockId}"]`);
+        if (ta) {
+            const block = blocks.find(b => b.id === focusedBlockId);
+            if (block) {
+                autoResize(ta);
+                setupTextarea(ta, block.start);
+            }
+        }
     }
-    save();
 }
 
 function autoResize(ta) {
@@ -313,8 +330,6 @@ function autoResize(ta) {
 
 // ── Boot ───────────────────────────────────────────────
 function init() {
-    // 从 #app 的 data-content 属性读取 base64 编码的文件内容
-    // 这种方式完全不依赖 CSP、postMessage 握手，最可靠
     const el = document.getElementById('app');
     const b64 = el ? el.getAttribute('data-content') : '';
     if (b64) {
@@ -324,10 +339,21 @@ function init() {
             try { content = atob(b64); } catch(e2) { content = ''; }
         }
     }
-    // Fix #14: 空文件保持为空，不注入默认内容
     if (!content) {
         content = '';
     }
+
+    // Copy button — event delegation on app (M1: prevents duplicate listeners)
+    app.addEventListener('click', e => {
+        if (!e.target.classList.contains('code-copy')) return;
+        const codeBlock = e.target.closest('.code-block');
+        if (!codeBlock) return;
+        const code = codeBlock.querySelector('code');
+        if (!code) return;
+        navigator.clipboard.writeText(code.textContent);
+        e.target.textContent = 'Copied!';
+        setTimeout(() => e.target.textContent = 'Copy', 1500);
+    });
 
     // Theme detection
     const updateTheme = () => {
