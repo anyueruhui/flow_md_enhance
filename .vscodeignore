@@ -1,0 +1,12 @@
+src/**
+test/**
+webview/**
+node_modules/**
+dist/**
+*.tgz
+*.vsix
+.gitignore
+build.js
+dist.sh
+CLAUDE.md
+test.md
