@@ -26,7 +26,19 @@ async function loadWebview(mdContent) {
     <script>${bundleCode}</script>
 </body></html>`;
     const dom = new JSDOM(html, { runScripts: 'dangerously' });
-    await new Promise(r => setTimeout(r, 150));
+    // 替换固定等待为轮询
+    await new Promise((resolve) => {
+        const check = () => {
+            const app = dom.window.document.getElementById('app');
+            if (app && app.innerHTML.length > 0 && !app.innerHTML.includes('Loading')) {
+                resolve();
+            } else {
+                setTimeout(check, 20);
+            }
+        };
+        setTimeout(check, 20);
+        setTimeout(resolve, 3000); // 最大等3秒
+    });
     return dom;
 }
 

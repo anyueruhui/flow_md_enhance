@@ -7,6 +7,8 @@
 // In standalone mode, fall back to require
 var MarkdownIt = typeof MarkdownIt !== 'undefined' ? MarkdownIt : require('markdown-it');
 var TaskCheckbox = typeof TaskCheckbox !== 'undefined' ? TaskCheckbox : require('markdown-it-task-checkbox');
+// Fix #3: DOMPurify 防 XSS
+var DOMPurify = typeof DOMPurify !== 'undefined' ? DOMPurify : require('dompurify');
 
 const md = new MarkdownIt({
     html: true,         // ★ 核心特性：启用 HTML 标签渲染
@@ -22,10 +24,19 @@ const md = new MarkdownIt({
 }).use(TaskCheckbox);
 md.enable('table');
 
+// ── DOMPurify config (Fix #3) ──────────────────────────
+const purifyConfig = {
+    ALLOWED_TAGS: ['strong','em','s','mark','kbd','sub','sup','font','span','details','summary','input','label','a','img','br','hr','p','div','h1','h2','h3','h4','h5','h6','ul','ol','li','table','thead','tbody','tr','th','td','blockquote','pre','code','del','ins','dl','dt','dd','figure','figcaption','abbr'],
+    ALLOWED_ATTR: ['href','src','alt','title','class','id','style','color','type','checked','disabled','for','data-*','target','rel'],
+    ALLOW_DATA_ATTR: true
+};
+
 // ── State ──────────────────────────────────────────────
 let mode = 'live'; // live | viewer | source
 let content = '';
 let focusedBlockId = null;
+// Fix #2: 用 Map 追踪每个块进入编辑态时的原始 raw 内容，取代递增 ID 定位
+const blockRawMap = new Map(); // blockId -> original raw content
 
 const app = document.getElementById('app');
 
@@ -57,7 +68,8 @@ function parseBlocks(src) {
         if (buf.length === 0) return;
         const raw = buf.join('\n');
         const id = `b${blocks.length}`;
-        const html = md.render(raw);
+        let html = md.render(raw);
+        html = DOMPurify.sanitize(html, purifyConfig); // Fix #3: sanitize
         const trimmed = raw.trimStart();
         let type = 'paragraph';
         if (/^#{1,6}\s/.test(trimmed)) type = 'heading';
@@ -79,8 +91,20 @@ function parseBlocks(src) {
         }
         if (inCode) { buf.push(line); continue; }
         if (line.trim() === '') { flush(); continue; }
-        if (/^#{1,6}\s/.test(line)) { flush(); blocks.push({ id:`b${blocks.length}`, raw:line, html:md.render(line), type:'heading' }); continue; }
-        if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line.trim())) { flush(); blocks.push({ id:`b${blocks.length}`, raw:line, html:md.render(line), type:'hr' }); continue; }
+        if (/^#{1,6}\s/.test(line)) {
+            flush();
+            let h = md.render(line);
+            h = DOMPurify.sanitize(h, purifyConfig); // Fix #3: sanitize
+            blocks.push({ id:`b${blocks.length}`, raw:line, html:h, type:'heading' });
+            continue;
+        }
+        if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line.trim())) {
+            flush();
+            let h = md.render(line);
+            h = DOMPurify.sanitize(h, purifyConfig); // Fix #3: sanitize
+            blocks.push({ id:`b${blocks.length}`, raw:line, html:h, type:'hr' });
+            continue;
+        }
         buf.push(line);
     }
     flush();
@@ -112,6 +136,7 @@ function renderLive() {
     let h = toolbar() + '<div class="editor-content live-preview">';
     for (const b of blocks) {
         if (b.id === focusedBlockId) {
+            blockRawMap.set(b.id, b.raw); // Fix #2: 记住原始 raw
             h += `<div class="block block-focused" data-id="${b.id}"><textarea class="block-ta" data-id="${b.id}" spellcheck="false">${esc(b.raw)}</textarea></div>`;
         } else {
             h += `<div class="block block-rendered" data-id="${b.id}"><div class="block-html">${b.html}</div></div>`;
@@ -123,9 +148,16 @@ function renderLive() {
 }
 
 // 局部替换：只把指定块从编辑态换成渲染态，不动其他 DOM，不丢滚动
+// Fix #2: 通过 raw 内容匹配而非递增 ID 查找块
 function unfocusBlock(blockId) {
+    const currentRaw = blockRawMap.get(blockId);
+    blockRawMap.delete(blockId);
+
     const blocks = parseBlocks(content);
-    const block = blocks.find(b => b.id === blockId);
+    // Fix #2: 优先用 raw 内容匹配，回退到 ID 匹配
+    const block = currentRaw
+        ? blocks.find(b => b.raw === currentRaw)
+        : blocks.find(b => b.id === blockId);
     if (!block) return;
 
     const oldEl = app.querySelector(`[data-id="${blockId}"]`);
@@ -133,7 +165,7 @@ function unfocusBlock(blockId) {
 
     const newEl = document.createElement('div');
     newEl.className = 'block block-rendered';
-    newEl.dataset.id = blockId;
+    newEl.dataset.id = block.id;
     newEl.innerHTML = `<div class="block-html">${block.html}</div>`;
 
     oldEl.replaceWith(newEl);
@@ -142,6 +174,7 @@ function unfocusBlock(blockId) {
     newEl.addEventListener('click', () => {
         focusedBlockId = newEl.dataset.id;
         const block2 = parseBlocks(content).find(b => b.id === newEl.dataset.id);
+        if (block2) blockRawMap.set(block2.id, block2.raw); // Fix #2: 记住 raw
         const editEl = document.createElement('div');
         editEl.className = 'block block-focused';
         editEl.dataset.id = newEl.dataset.id;
@@ -157,7 +190,8 @@ function unfocusBlock(blockId) {
 }
 
 function renderViewer() {
-    const html = md.render(content);
+    let html = md.render(content);
+    html = DOMPurify.sanitize(html, purifyConfig); // Fix #3: sanitize
     app.innerHTML = toolbar() + `<div class="editor-content viewer-mode"><div class="viewer-content">${html}</div></div>`;
     bindToolbar();
     bindCopyButtons();
@@ -201,10 +235,14 @@ function bindBlockTa(ta) {
         autoResize(ta);
         applyBlockEdit(ta);
     });
+    // Fix #6: blur/click 竞态 — 延迟处理让 click 事件先触发
     ta.addEventListener('blur', () => {
-        applyBlockEdit(ta);
-        focusedBlockId = null;
-        unfocusBlock(ta.dataset.id); // 局部替换，不重建整个 DOM
+        setTimeout(() => {
+            if (focusedBlockId === ta.dataset.id) return; // 用户点击了另一个块
+            applyBlockEdit(ta);
+            focusedBlockId = null;
+            unfocusBlock(ta.dataset.id);
+        }, 50);
     });
     ta.addEventListener('keydown', e => {
         if (e.key === 'Tab') {
@@ -231,6 +269,7 @@ function bindLive() {
         el.addEventListener('click', () => {
             focusedBlockId = el.dataset.id;
             const block = parseBlocks(content).find(b => b.id === el.dataset.id);
+            if (block) blockRawMap.set(block.id, block.raw); // Fix #2: 记住 raw
             const editEl = document.createElement('div');
             editEl.className = 'block block-focused';
             editEl.dataset.id = el.dataset.id;
@@ -251,12 +290,17 @@ function bindLive() {
     });
 }
 
+// Fix #1: applyBlockEdit 保留原始分隔符 — 直接在 content 中替换原始 raw
 function applyBlockEdit(ta) {
     const bid = ta.dataset.id;
     const newRaw = ta.value;
-    const blocks = parseBlocks(content);
-    const parts = blocks.map(b => b.id === bid ? newRaw : b.raw);
-    content = parts.join('\n\n');
+    const originalRaw = blockRawMap.get(bid);
+    if (originalRaw !== undefined) {
+        // 直接在 content 中用字符串替换，保留原始分隔符
+        content = content.replace(originalRaw, newRaw);
+        // 更新追踪的 raw 为新值，供后续 input 事件使用
+        blockRawMap.set(bid, newRaw);
+    }
     save();
 }
 
@@ -278,8 +322,9 @@ function init() {
             try { content = atob(b64); } catch(e2) { content = ''; }
         }
     }
+    // Fix #14: 空文件保持为空，不注入默认内容
     if (!content) {
-        content = '# Welcome\n\nStart editing...';
+        content = '';
     }
 
     // Theme detection

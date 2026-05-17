@@ -6,8 +6,18 @@ class FlowMdEditorProvider {
         this.context = context;
     }
 
-    async openCustomDocument(uri, _openContext, _token) {
-        return { uri, dispose() {} };
+    async openCustomDocument(uri, _openContext) {
+        return {
+            uri,
+            async backup(destination) {
+                const content = (await vscode.workspace.fs.readFile(uri)).toString();
+                await vscode.workspace.fs.writeFile(destination, Buffer.from(content, 'utf-8'));
+            },
+            async revert() {
+                // 文件已从磁盘重新读取
+            },
+            dispose() {}
+        };
     }
 
     async resolveCustomEditor(document, webviewPanel, _token) {
@@ -51,15 +61,28 @@ class FlowMdEditorProvider {
         webviewPanel.webview.onDidReceiveMessage(async (msg) => {
             if (msg.type === 'save') {
                 const edit = new vscode.WorkspaceEdit();
+                const lastLine = document.lineCount - 1;
+                const lastChar = document.lineAt(lastLine).text.length;
+                const fullRange = new vscode.Range(0, 0, lastLine, lastChar);
                 edit.replace(
                     document.uri,
-                    new vscode.Range(0, 0, 999999, 999999),
+                    fullRange,
                     msg.content
                 );
                 await vscode.workspace.applyEdit(edit);
-                document.save();
+                await document.save();
             }
         });
+
+        // 监听文件外部变更
+        const watcher = vscode.workspace.createFileSystemWatcher(document.uri.fsPath);
+        const changeSub = watcher.onDidChange(async () => {
+            try {
+                const newContent = (await vscode.workspace.fs.readFile(document.uri)).toString();
+                webviewPanel.webview.postMessage({ type: 'update', content: newContent });
+            } catch(e) {}
+        });
+        webviewPanel.onDidDispose(() => { changeSub.dispose(); watcher.dispose(); });
     }
 }
 

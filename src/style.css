@@ -143,12 +143,12 @@ html, body {
 .task-list-item input[type="checkbox"] {
     appearance: none; -webkit-appearance: none;
     width: 16px; height: 16px;
-    border: 2px solid #333;
+    border: 2px solid var(--border);
     border-radius: 3px;
     cursor: pointer;
     position: relative;
     flex-shrink: 0;
-    background: #fff;
+    background: var(--bg);
     transition: all 0.15s;
 }
 .task-list-item input[type="checkbox"]:checked {
@@ -167,9 +167,9 @@ html, body {
     border-color: var(--accent);
 }
 .task-list-item label { cursor: pointer; }
-.task-list-item input:checked + label { text-decoration: line-through; color: var(--fg-muted); }
+.task-list-item input:checked + label { text-decoration: line-through; color: var(--muted); }
 
-/* ── Blockquote ──────────────────────────── */
+/* ── Code Blocks ──────────────────────────── */
 .code-block { margin: 8px 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
 .code-header {
     display: flex; justify-content: space-between; align-items: center;

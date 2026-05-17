@@ -4,6 +4,8 @@ const path = require('path');
 
 const ROOT = __dirname;
 
+const nodePath = process.env.NODE_PATH || '/tmp/fmd-build/node_modules';
+
 function build() {
     fs.mkdirSync(path.join(ROOT, 'out', 'webview'), { recursive: true });
 
@@ -17,7 +19,7 @@ function build() {
 
     // 3. Bundle webview with esbuild
     execSync(
-        `NODE_PATH=/tmp/fmd-build/node_modules npx esbuild ` +
+        `NODE_PATH=${nodePath} npx esbuild ` +
         `${path.join(ROOT, 'src', 'webview.js')} ` +
         `--outfile=${path.join(ROOT, 'out', 'webview', 'main.js')} ` +
         `--bundle --format=iife --target=es2020 --platform=browser --sourcemap`,
