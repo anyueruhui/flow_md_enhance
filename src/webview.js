@@ -6,6 +6,7 @@
 // ── markdown-it (bundled inline by build.js as var MarkdownIt) ──────
 // In standalone mode, fall back to require
 var MarkdownIt = typeof MarkdownIt !== 'undefined' ? MarkdownIt : require('markdown-it');
+var TaskCheckbox = typeof TaskCheckbox !== 'undefined' ? TaskCheckbox : require('markdown-it-task-checkbox');
 
 const md = new MarkdownIt({
     html: true,         // ★ 核心特性：启用 HTML 标签渲染
@@ -18,7 +19,7 @@ const md = new MarkdownIt({
         const label = lang || 'text';
         return `<div class="code-block"><div class="code-header"><span class="code-lang">${label}</span><button class="code-copy">Copy</button></div><pre class="code-content"><code>${escaped}</code></pre></div>`;
     },
-});
+}).use(TaskCheckbox);
 md.enable('table');
 
 // ── State ──────────────────────────────────────────────

@@ -137,7 +137,39 @@ html, body {
 
 /* All inline styles pass through — color, background, font-size, text-align, etc. */
 
-/* ── Code Blocks ─────────────────────────────────── */
+/* ── Task list (checkbox) ─────────────────── */
+.task-list { list-style: none; padding-left: 0; }
+.task-list-item { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.task-list-item input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border: 2px solid var(--fg-muted);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    background: transparent;
+    transition: all 0.15s;
+}
+.task-list-item input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+.task-list-item input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: -1px; left: 1px;
+    font-size: 12px;
+    color: #fff;
+    font-weight: bold;
+}
+.task-list-item input[type="checkbox"]:hover {
+    border-color: var(--accent);
+}
+.task-list-item label { cursor: pointer; }
+.task-list-item input:checked + label { text-decoration: line-through; color: var(--fg-muted); }
+
+/* ── Blockquote ──────────────────────────── */
 .code-block { margin: 8px 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
 .code-header {
     display: flex; justify-content: space-between; align-items: center;

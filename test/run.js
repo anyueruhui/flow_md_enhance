@@ -36,7 +36,8 @@ async function loadWebview(mdContent) {
 function testMarkdown() {
     console.log('\n📋 Test 1: markdown-it HTML 渲染');
     const MarkdownIt = require('/tmp/fmd-build/node_modules/markdown-it');
-    const md = new MarkdownIt({ html: true, breaks: true });
+    const TaskCheckbox = require('/tmp/fmd-build/node_modules/markdown-it-task-checkbox');
+    const md = new MarkdownIt({ html: true, breaks: true }).use(TaskCheckbox);
     const cases = [
         ['<strong>', '<strong>B</strong>', '<strong>B</strong>'],
         ['<font color>', '<font color="red">R</font>', 'color="red"'],
@@ -54,6 +55,8 @@ function testMarkdown() {
         ['代码', '```\ncode\n```', '<code'],
         ['引用', '> Q', '<blockquote>'],
         ['列表', '- a\n- b', '<li>'],
+        ['任务列表 [ ]', '- [ ] todo', '<input type="checkbox"'],
+        ['任务列表 [x]', '- [x] done', 'checked'],
     ];
     for (const [name, input, expect] of cases) {
         assert(md.render(input).includes(expect), name);
