@@ -1,6 +1,10 @@
 # FlowMD Enhance
 
+[中文文档](README_ZH.md)
+
 A WYSIWYG Markdown editor for VS Code with full HTML tag support, block-level editing, and integrated page search.
+
+![FlowMD Enhance](show_case.png)
 
 ## Features
 
@@ -53,50 +57,11 @@ Fenced code blocks with syntax header and one-click copy button.
 
 Detects external file changes (e.g. git pull) and reloads content automatically, with self-save filtering to prevent feedback loops.
 
-### Default Mode Setting
+## Settings
 
-Configure which mode opens by default via VS Code Settings: search `flowMdEnhance.defaultMode`, choose `live`, `viewer`, or `source`.
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `bash dist.sh` | Build + package VSIX to `dist/` |
-| `bash publish.sh` | Auto bump version + build + publish to Marketplace |
-| `bash publish.sh --skip-bump` | Publish without version bump |
-| `node test/run.js` | Run 91 tests |
-
-### Manual Build
-
-```bash
-npm install
-node build.js
-npx vsce package --no-dependencies
-code --install-extension flow-md-enhance-0.2.0.vsix
-```
-
-## Architecture
-
-```
-src/
-├── extension.js    — VS Code extension host: custom editor provider, file I/O, watcher
-├── webview.js      — Webview: block parser, 3-mode renderer, search, undo system
-└── style.css       — VS Code theme-integrated styles (CSS variables)
-```
-
-**Content flow:**
-
-```
-.md file → extension reads → base64 encode → data-content attribute → webview decodes → markdown-it renders
-webview edits → postMessage('save') → extension WorkspaceEdit → file saved
-```
-
-### Key Design Decisions
-
-- **Base64 data-content** — Bypasses webview CSP restrictions on inline scripts
-- **Character offset tracking** — Block edits use `{start, end}` offsets, not string matching, for precise replacement even with duplicate content blocks
-- **DOMPurify allowlist** — Extended tag/attribute whitelist preserves HTML while sanitizing dangerous content
-- **Backdrop overlay pattern** — Source mode search highlights use a transparent textarea over a highlight div, since `<textarea>` cannot render inline HTML
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `flowMdEnhance.defaultMode` | `live` | Default editing mode: `live`, `viewer`, or `source` |
 
 ## Requirements
 

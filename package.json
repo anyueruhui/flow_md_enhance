@@ -5,6 +5,10 @@
   "version": "0.2.0",
   "publisher": "linlucifer",
   "icon": "md_logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anyueruhui/flow_md_enhance.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
