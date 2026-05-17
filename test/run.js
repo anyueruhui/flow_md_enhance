@@ -300,6 +300,48 @@ function testBase64Direct() {
 }
 
 // ─────────────────────────────────────────────
+// Test 15: 搜索功能
+// ─────────────────────────────────────────────
+async function testSearchFeature() {
+    console.log('\n📋 Test 15: 页面搜索功能');
+
+    // 15a: 搜索栏 HTML 存在（默认隐藏）
+    const dom = await loadWebview('# Hello world\n\nFoo bar baz\n\nHello again');
+    const app = dom.window.document.getElementById('app');
+
+    const searchBar = app.querySelector('.search-bar');
+    assert(searchBar !== null, '搜索栏 DOM 存在');
+    assert(!searchBar.classList.contains('open'), '搜索栏默认隐藏');
+
+    // 15b: 搜索栏可通过 openSearch 显示
+    // 模拟 Cmd+F：查找 document 上的 keydown 监听器
+    // 由于 JSDOM 限制，直接调用 webview 内部 openSearch 不可能
+    // 改为检查代码是否包含搜索逻辑
+    assert(bundleCode.includes('openSearch'), 'openSearch 函数存在');
+    assert(bundleCode.includes('highlightAll'), 'highlightAll 函数存在');
+    assert(bundleCode.includes('clearHighlights'), 'clearHighlights 函数存在');
+    assert(bundleCode.includes('nextMatch'), 'nextMatch 函数存在');
+    assert(bundleCode.includes('prevMatch'), 'prevMatch 函数存在');
+    assert(bundleCode.includes('searchCaseSensitive'), '大小写切换变量存在');
+    assert(bundleCode.includes('search-hl'), 'search-hl 高亮 class 存在');
+    assert(bundleCode.includes('search-hl-active'), 'search-hl-active 当前匹配 class 存在');
+
+    // 15c: 搜索栏 UI 元素完整
+    assert(app.querySelector('.search-input') !== null, '搜索输入框存在');
+    assert(app.querySelector('.search-case') !== null, 'Aa 大小写按钮存在');
+    assert(app.querySelector('.search-count') !== null, '计数显示存在');
+    assert(app.querySelector('.search-prev') !== null, '上一个按钮存在');
+    assert(app.querySelector('.search-next') !== null, '下一个按钮存在');
+    assert(app.querySelector('.search-close') !== null, '关闭按钮存在');
+
+    // 15d: Cmd/Ctrl+F 快捷键注册
+    assert(bundleCode.includes('e.key === "f"') || bundleCode.includes("e.key === 'f'"), 'Cmd/Ctrl+F 快捷键已注册');
+    assert(bundleCode.includes('e.metaKey') || bundleCode.includes('e.ctrlKey'), 'meta/ctrl 键检测');
+
+    dom.window.close();
+}
+
+// ─────────────────────────────────────────────
 async function main() {
     console.log('══════════════════════════════════════════');
     console.log('  FlowMD Enhance — 测试套件 v4');
@@ -319,6 +361,7 @@ async function main() {
     try { testSaveDebounce(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { testNonEmptyCatch(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { testBase64Direct(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
+    try { await testSearchFeature(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
 
     console.log('\n══════════════════════════════════════════');
     console.log(`  结果: ${pass} passed, ${fail} failed`);
