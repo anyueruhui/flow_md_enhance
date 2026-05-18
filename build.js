@@ -8,6 +8,8 @@ const nodePath = process.env.NODE_PATH || '/tmp/fmd-build/node_modules';
 
 function build() {
     fs.mkdirSync(path.join(ROOT, 'out', 'webview'), { recursive: true });
+    const sourcemapPath = path.join(ROOT, 'out', 'webview', 'main.js.map');
+    if (fs.existsSync(sourcemapPath)) fs.unlinkSync(sourcemapPath);
 
     // 1. Copy CSS
     fs.copyFileSync(path.join(ROOT, 'src', 'style.css'), path.join(ROOT, 'out', 'webview', 'style.css'));
@@ -22,7 +24,7 @@ function build() {
         `NODE_PATH=${nodePath} npx esbuild ` +
         `${path.join(ROOT, 'src', 'webview.js')} ` +
         `--outfile=${path.join(ROOT, 'out', 'webview', 'main.js')} ` +
-        `--bundle --format=iife --target=es2020 --platform=browser --sourcemap`,
+        `--bundle --format=iife --target=es2020 --platform=browser`,
         { stdio: 'inherit', cwd: ROOT }
     );
     console.log('✓ Webview bundled');

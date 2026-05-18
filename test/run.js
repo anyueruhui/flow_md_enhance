@@ -16,12 +16,17 @@ function assert(cond, msg) {
 
 const bundleCode = fs.readFileSync(path.join(ROOT, 'out', 'webview', 'main.js'), 'utf8');
 const extCode = fs.readFileSync(path.join(ROOT, 'out', 'extension.js'), 'utf8');
+const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
-async function loadWebview(mdContent) {
+async function loadWebview(mdContent, options = {}) {
     const b64 = Buffer.from(mdContent, 'utf-8').toString('base64');
+    const defaultModeScript = options.defaultMode
+        ? `<script>window.__DEFAULT_MODE__ = "${options.defaultMode}";</script>`
+        : '';
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body class="vscode-dark">
     <div id="app" data-content="${b64}"></div>
+    ${defaultModeScript}
     <script>${bundleCode}</script>
 </body></html>`;
     const dom = new JSDOM(html, { runScripts: 'dangerously' });
@@ -158,6 +163,18 @@ async function testModes() {
     dom.window.close();
 }
 
+async function testInjectedSourceMode() {
+    console.log('\n📋 Test 5b: 注入 Source 初始模式');
+    const dom = await loadWebview('# Title\n\nParagraph', { defaultMode: 'source' });
+    const app = dom.window.document.getElementById('app');
+    const ta = app.querySelector('.source-ta');
+
+    assert(app.querySelector('.source-mode') !== null, '注入 Source 后默认 Source 模式');
+    assert(ta !== null && ta.value.includes('# Title'), 'Source textarea 包含原文');
+
+    dom.window.close();
+}
+
 // ─────────────────────────────────────────────
 // Test 6: Extension 代码质量
 // ─────────────────────────────────────────────
@@ -169,6 +186,21 @@ function testExtension() {
     assert(extCode.includes('enableScripts'), 'enableScripts');
     assert(!extCode.includes('__INITIAL_CONTENT__'), '无 __INITIAL_CONTENT__');
     assert(extCode.includes('readFile'), '读取文件');
+    assert(extCode.includes('autoOpenMarkdownEditor'), '普通 Markdown 自动用 FlowMD 打开');
+    assert(extCode.includes('isUriInTextDiff'), 'diff tab 中跳过自动打开');
+    assert(extCode.includes('vscode.openWith'), '使用 openWith 打开 FlowMD');
+    assert(!extCode.includes('computeLineDecorations'), '不再自绘 diff');
+    assert(!extCode.includes('vscode.diff'), '不再重定向 diff');
+}
+
+function testEditorAssociationConfig() {
+    console.log('\n📋 Test 6b: 普通打开与 diff 配置');
+    const customEditor = packageJson.contributes.customEditors.find(editor => editor.viewType === 'flowMdEnhance.editor');
+
+    assert(customEditor.priority === 'option', 'custom editor 不以 default priority 抢占 diff');
+    assert(!packageJson.contributes.configurationDefaults, '不再通过 editorAssociations 影响 diff');
+    assert(packageJson.activationEvents.includes('onLanguage:markdown'), 'Markdown 文本打开时激活自动打开逻辑');
+    assert(packageJson.contributes.configuration.properties['flowMdEnhance.autoOpenMarkdown'], '提供自动打开开关');
 }
 
 // ─────────────────────────────────────────────
@@ -352,7 +384,9 @@ async function main() {
     try { await testWebviewRender(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { await testHtmlTags(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { await testModes(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
+    try { await testInjectedSourceMode(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { testExtension(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
+    try { testEditorAssociationConfig(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { testArtifacts(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { await testDuplicateBlockEdit(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { await testPurifyAllowlist(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }

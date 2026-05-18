@@ -1,6 +1,56 @@
 const vscode = require('vscode');
 const path = require('path');
 
+const VIEW_TYPE = 'flowMdEnhance.editor';
+const autoOpeningUris = new Set();
+
+function sameUri(left, right) {
+    return Boolean(left && right && left.toString() === right.toString());
+}
+
+function isMarkdownFileUri(uri) {
+    return Boolean(uri
+        && uri.scheme === 'file'
+        && /\.md$/i.test(uri.fsPath || uri.path || ''));
+}
+
+function isUriInTextDiff(uri) {
+    try {
+        return vscode.window.tabGroups.all.some(group => group.tabs.some(tab => {
+            const input = tab.input;
+            return Boolean(input
+                && input.original
+                && input.modified
+                && (sameUri(input.original, uri) || sameUri(input.modified, uri)));
+        }));
+    } catch(e) {
+        console.error('FlowMD: diff tab detection error', e);
+        return false;
+    }
+}
+
+async function autoOpenMarkdownEditor(editor) {
+    if (!editor) return;
+    const enabled = vscode.workspace.getConfiguration('flowMdEnhance').get('autoOpenMarkdown', true);
+    if (!enabled || !isMarkdownFileUri(editor.document.uri) || isUriInTextDiff(editor.document.uri)) return;
+
+    const uriKey = editor.document.uri.toString();
+    if (autoOpeningUris.has(uriKey)) return;
+
+    autoOpeningUris.add(uriKey);
+    try {
+        await vscode.commands.executeCommand('vscode.openWith', editor.document.uri, VIEW_TYPE, {
+            preview: false,
+            preserveFocus: false,
+            viewColumn: editor.viewColumn,
+        });
+    } catch(e) {
+        console.error('FlowMD: auto open Markdown editor error', e);
+    } finally {
+        setTimeout(() => autoOpeningUris.delete(uriKey), 500);
+    }
+}
+
 class FlowMdEditorProvider {
     constructor(context) {
         this.context = context;
@@ -20,6 +70,7 @@ class FlowMdEditorProvider {
     }
 
     async resolveCustomEditor(document, webviewPanel, _token) {
+        const uriKey = document.uri.toString();
         webviewPanel.webview.options = {
             enableScripts: true,
             localResourceRoots: [
@@ -37,7 +88,7 @@ class FlowMdEditorProvider {
         const fileBytes = await vscode.workspace.fs.readFile(document.uri);
         const b64 = Buffer.from(fileBytes).toString('base64');
         const defaultMode = vscode.workspace.getConfiguration('flowMdEnhance').get('defaultMode', 'live');
-        const fileDir = path.dirname(document.uri.fsPath);
+        const fileDir = path.dirname(document.uri.fsPath || document.uri.path);
         const fileDirUri = webviewPanel.webview.asWebviewUri(vscode.Uri.file(fileDir)) + '/';
 
         webviewPanel.webview.html = `<!DOCTYPE html>
@@ -58,8 +109,6 @@ class FlowMdEditorProvider {
     <script src="${scriptUri}?v=${Date.now()}"></script>
 </body>
 </html>`;
-
-        const uriKey = document.uri.toString();
 
         // Handle save messages from webview
         webviewPanel.webview.onDidReceiveMessage(async (msg) => {
@@ -94,14 +143,18 @@ class FlowMdEditorProvider {
 function activate(context) {
     const provider = new FlowMdEditorProvider(context);
     context.subscriptions.push(
-        vscode.window.registerCustomEditorProvider('flowMdEnhance.editor', provider, {
+        vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider, {
             webviewOptions: { retainContextWhenHidden: true },
             supportsMultipleEditorsPerDocument: false,
         }),
         vscode.commands.registerCommand('flowMdEnhance.open', () => {
             vscode.commands.executeCommand('workbench.action.files.openFile');
+        }),
+        vscode.window.onDidChangeActiveTextEditor(editor => {
+            setTimeout(() => autoOpenMarkdownEditor(editor), 0);
         })
     );
+    setTimeout(() => autoOpenMarkdownEditor(vscode.window.activeTextEditor), 0);
 }
 
 function deactivate() {}

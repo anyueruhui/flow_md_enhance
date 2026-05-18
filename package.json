@@ -2,7 +2,7 @@
   "name": "flow-md-enhance",
   "displayName": "FlowMD Enhance",
   "description": "WYSIWYG Markdown Editor with full HTML tag support for VS Code",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "linlucifer",
   "icon": "md_logo.png",
   "repository": {
@@ -16,7 +16,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onCustomEditor:flowMdEnhance.editor"
+    "onCustomEditor:flowMdEnhance.editor",
+    "onLanguage:markdown"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -37,6 +38,11 @@
             "Source — raw Markdown editing"
           ],
           "description": "Default editing mode when opening a Markdown file"
+        },
+        "flowMdEnhance.autoOpenMarkdown": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically reopen normal Markdown text editors with FlowMD Enhance. Diff editors always stay in VS Code's built-in text diff."
         }
       }
     },
@@ -49,7 +55,7 @@
             "filenamePattern": "*.md"
           }
         ],
-        "priority": "default"
+        "priority": "option"
       }
     ],
     "commands": [
