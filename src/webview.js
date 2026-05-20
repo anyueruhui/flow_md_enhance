@@ -246,7 +246,8 @@ function renderLive() {
             focusedBlockLen = b.raw.length;
             h += `<div class="block block-focused" data-id="${b.id}"><textarea class="block-ta" data-id="${b.id}" spellcheck="false">${esc(b.raw)}</textarea></div>`;
         } else {
-            h += `<div class="block block-rendered" data-id="${b.id}"><div class="block-html">${b.html}</div></div>`;
+            const bh = b.type === 'table' ? `<div class="table-wrap">${b.html}</div>` : b.html;
+            h += `<div class="block block-rendered" data-id="${b.id}"><div class="block-html">${bh}</div></div>`;
         }
     }
     h += '</div>';
@@ -258,6 +259,7 @@ function renderViewer() {
     let html = md.render(content);
     html = DOMPurify.sanitize(html, purifyConfig);
     html = resolveImgPaths(html);
+    html = html.replace(/<table>/g, '<div class="table-wrap"><table>').replace(/<\/table>/g, '</table></div>');
     app.innerHTML = toolbar() + searchBarHtml() + `<div class="editor-content viewer-mode"><div class="viewer-content">${html}</div></div>`;
     bindToolbar();
     bindSearch();
@@ -361,7 +363,8 @@ function unfocusTa(ta, blockOffset) {
     const newEl = document.createElement('div');
     newEl.className = 'block block-rendered';
     newEl.dataset.id = block.id;
-    newEl.innerHTML = `<div class="block-html">${block.html}</div>`;
+    const bh = block.type === 'table' ? `<div class="table-wrap">${block.html}</div>` : block.html;
+    newEl.innerHTML = `<div class="block-html">${bh}</div>`;
     oldEl.replaceWith(newEl);
 
     pushHistory();
