@@ -242,7 +242,7 @@ async function testLayoutSettings() {
     dom.window.dispatchEvent(new dom.window.Event('resize'));
     await new Promise(resolve => setTimeout(resolve, 30));
     const activeMaxWidth = parseFloat(wrap.style.getPropertyValue('--table-active-max-width'));
-    assert(activeMaxWidth > 720 && simulatedWidth <= 902, '压缩后仍有空白时动态放宽列宽');
+    assert(activeMaxWidth > 720 && simulatedWidth <= 899, '压缩后仍有空白时动态放宽列宽且不触发细微滚动');
 
     assert(styleCode.includes('.editor-content.viewer-mode { padding-left: 0; padding-right: 0; }'), 'Viewer 横向 padding 不影响 90% 宽度');
     assert(styleCode.includes('.viewer-content { width: 90%; max-width: none; margin: 0 auto; }'), 'Viewer 内容宽度为 90%');

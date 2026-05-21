@@ -157,7 +157,8 @@ function measureTableWidth(table) {
 }
 
 function fitOverflowingTable(wrap, table, availableWidth, minMaxWidth, naturalWidth) {
-    if (measureTableWidth(table) >= availableWidth - 1) return;
+    const targetWidth = Math.max(0, availableWidth - 1);
+    if (measureTableWidth(table) >= targetWidth) return;
 
     let low = minMaxWidth;
     let high = Math.max(minMaxWidth, naturalWidth);
@@ -166,14 +167,14 @@ function fitOverflowingTable(wrap, table, availableWidth, minMaxWidth, naturalWi
     for (let i = 0; i < 12; i++) {
         const mid = (low + high) / 2;
         wrap.style.setProperty('--table-active-max-width', mid + 'px');
-        if (measureTableWidth(table) <= availableWidth + 1) {
+        if (measureTableWidth(table) <= targetWidth) {
             best = mid;
             low = mid;
         } else {
             high = mid;
         }
     }
-    wrap.style.setProperty('--table-active-max-width', Math.round(best) + 'px');
+    wrap.style.setProperty('--table-active-max-width', best.toFixed(2) + 'px');
 }
 
 // ── Receive extension messages ────────────────────────
