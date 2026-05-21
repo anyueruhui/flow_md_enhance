@@ -63,7 +63,7 @@ npm version <patch|minor|major> --no-git-tag-version
 git add package.json
 VERSION=$(node -p "require('./package.json').version")
 git commit -m "chore: v${VERSION}"
-git tag "v${VERSION}"
+git tag -a "v${VERSION}" -m "v${VERSION}"
 ```
 
 ### 5. 发布到 VS Code 商店
@@ -77,10 +77,10 @@ npx vsce publish --no-dependencies
 ### 6. Push 到 GitHub
 
 ```bash
-git push origin main --follow-tags
+git push origin main "v${VERSION}"
 ```
 
-`--follow-tags` 确保 annotated tag 一起推送。
+显式推送当前版本 tag，避免 `--follow-tags` 跳过 lightweight tag 或遗漏目标 tag。
 
 ### 7. 确认
 
