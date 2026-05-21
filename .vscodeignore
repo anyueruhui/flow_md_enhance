@@ -4,6 +4,8 @@ webview/**
 node_modules/**
 dist/**
 .claude/**
+.agents/**
+AGENTS.md
 docs/**
 *.tgz
 *.vsix

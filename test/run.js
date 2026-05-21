@@ -207,15 +207,43 @@ function testEditorAssociationConfig() {
     assert(packageJson.activationEvents.includes('onLanguage:markdown'), 'Markdown 文本打开时激活自动打开逻辑');
     assert(packageJson.contributes.configuration.properties['flowMdEnhance.autoOpenMarkdown'], '提供自动打开开关');
     assert(packageJson.contributes.configuration.properties['flowMdEnhance.tableMaxWidth'], '提供表格最大宽度设置');
-    assert(packageJson.contributes.configuration.properties['flowMdEnhance.tableMaxWidth'].default === 500, '表格最大宽度默认 500');
+    assert(packageJson.contributes.configuration.properties['flowMdEnhance.tableMaxWidth'].default === 300, '表格最大宽度默认 300');
 }
 
 async function testLayoutSettings() {
     console.log('\n📋 Test 6c: 表格宽度与 Viewer 宽度设置');
     const dom = await loadWebview('|A|B|\n|-|-|\n|1|2|', { settings: { tableMaxWidth: 720 } });
+    const wrap = dom.window.document.querySelector('.table-wrap');
+    const table = wrap && wrap.querySelector('table');
 
     assert(dom.window.document.documentElement.style.getPropertyValue('--table-max-width') === '720px', '表格最大宽度 CSS 变量生效');
-    assert(styleCode.includes('max-width: var(--table-max-width)'), '表格单元格使用 CSS 变量');
+    assert(styleCode.includes('.table-wrap.is-overflowing th') && styleCode.includes('max-width: var(--table-active-max-width)'), '只有横向溢出表格使用动态最大宽度限制');
+    assert(styleCode.includes('width: max-content') && styleCode.includes('max-width: none'), '表格保持内容宽度并由外层横向滚动');
+    assert(styleCode.includes('overflow-wrap: anywhere'), '长文本单元格可读换行');
+    assert(wrap && table && !wrap.classList.contains('is-overflowing'), '未溢出表格默认不限制列宽');
+    Object.defineProperty(wrap, 'clientWidth', { configurable: true, value: 200 });
+    Object.defineProperty(table, 'scrollWidth', { configurable: true, value: 500 });
+    dom.window.dispatchEvent(new dom.window.Event('resize'));
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert(wrap.classList.contains('is-overflowing'), '触发横向滚动时限制列宽');
+
+    let simulatedWidth = 0;
+    Object.defineProperty(wrap, 'clientWidth', { configurable: true, value: 900 });
+    Object.defineProperty(table, 'scrollWidth', {
+        configurable: true,
+        get() {
+            const rawActive = wrap.style.getPropertyValue('--table-active-max-width');
+            if (!rawActive) return 1200;
+            const active = parseFloat(rawActive);
+            simulatedWidth = active < 650 ? 700 : active + 120;
+            return simulatedWidth;
+        }
+    });
+    dom.window.dispatchEvent(new dom.window.Event('resize'));
+    await new Promise(resolve => setTimeout(resolve, 30));
+    const activeMaxWidth = parseFloat(wrap.style.getPropertyValue('--table-active-max-width'));
+    assert(activeMaxWidth > 720 && simulatedWidth <= 902, '压缩后仍有空白时动态放宽列宽');
+
     assert(styleCode.includes('.editor-content.viewer-mode { padding-left: 0; padding-right: 0; }'), 'Viewer 横向 padding 不影响 90% 宽度');
     assert(styleCode.includes('.viewer-content { width: 90%; max-width: none; margin: 0 auto; }'), 'Viewer 内容宽度为 90%');
     dom.window.dispatchEvent(new dom.window.MessageEvent('message', {

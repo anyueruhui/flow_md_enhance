@@ -62,7 +62,7 @@ Detects external file changes (e.g. git pull) and reloads content automatically,
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `flowMdEnhance.defaultMode` | `live` | Default editing mode: `live`, `viewer`, or `source` |
-| `flowMdEnhance.tableMaxWidth` | `500` | Maximum width in pixels for rendered Markdown table cells |
+| `flowMdEnhance.tableMaxWidth` | `300` | Preferred maximum width in pixels for table cells when a rendered table overflows the preview width |
 
 ## Requirements
 

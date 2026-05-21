@@ -42,7 +42,7 @@ const purifyConfig = {
 
 // ── State ──────────────────────────────────────────────
 const _initMode = ['live', 'viewer', 'source'].includes(window.__DEFAULT_MODE__) ? window.__DEFAULT_MODE__ : 'live';
-const DEFAULT_TABLE_MAX_WIDTH = 500;
+const DEFAULT_TABLE_MAX_WIDTH = 300;
 let mode = _initMode;
 let content = '';
 let focusedBlockId = null;
@@ -107,16 +107,73 @@ function saveImmediate() {
 }
 
 function normalizeTableMaxWidth(value) {
-    const width = Number(value);
+    const width = typeof value === 'string' ? parseFloat(value) : Number(value);
     return Number.isFinite(width) && width > 0 ? Math.round(width) : DEFAULT_TABLE_MAX_WIDTH;
 }
 
 function applySettings(settings) {
     const nextSettings = settings || window.__FLOW_MD_SETTINGS__ || {};
-    document.documentElement.style.setProperty(
-        '--table-max-width',
-        normalizeTableMaxWidth(nextSettings.tableMaxWidth) + 'px'
+    const tableMaxWidth = normalizeTableMaxWidth(nextSettings.tableMaxWidth);
+    document.documentElement.style.setProperty('--table-max-width', tableMaxWidth + 'px');
+    document.documentElement.style.setProperty('--table-active-max-width', tableMaxWidth + 'px');
+    scheduleTableLayout();
+}
+
+let tableLayoutTimer = null;
+function scheduleTableLayout() {
+    clearTimeout(tableLayoutTimer);
+    const run = () => {
+        tableLayoutTimer = null;
+        applyTableLayout();
+    };
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(run);
+    } else {
+        tableLayoutTimer = setTimeout(run, 0);
+    }
+}
+
+function applyTableLayout() {
+    const configuredMaxWidth = normalizeTableMaxWidth(
+        getComputedStyle(document.documentElement).getPropertyValue('--table-max-width')
     );
+    app.querySelectorAll('.table-wrap').forEach(wrap => {
+        const table = wrap.querySelector('table');
+        if (!table) return;
+        wrap.classList.remove('is-overflowing');
+        wrap.style.removeProperty('--table-active-max-width');
+        const naturalWidth = table.scrollWidth || table.getBoundingClientRect().width;
+        const availableWidth = wrap.clientWidth || wrap.getBoundingClientRect().width;
+        if (naturalWidth > availableWidth + 1) {
+            wrap.classList.add('is-overflowing');
+            wrap.style.setProperty('--table-active-max-width', configuredMaxWidth + 'px');
+            fitOverflowingTable(wrap, table, availableWidth, configuredMaxWidth, naturalWidth);
+        }
+    });
+}
+
+function measureTableWidth(table) {
+    return table.scrollWidth || table.getBoundingClientRect().width;
+}
+
+function fitOverflowingTable(wrap, table, availableWidth, minMaxWidth, naturalWidth) {
+    if (measureTableWidth(table) >= availableWidth - 1) return;
+
+    let low = minMaxWidth;
+    let high = Math.max(minMaxWidth, naturalWidth);
+    let best = low;
+
+    for (let i = 0; i < 12; i++) {
+        const mid = (low + high) / 2;
+        wrap.style.setProperty('--table-active-max-width', mid + 'px');
+        if (measureTableWidth(table) <= availableWidth + 1) {
+            best = mid;
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    wrap.style.setProperty('--table-active-max-width', Math.round(best) + 'px');
 }
 
 // ── Receive extension messages ────────────────────────
@@ -271,6 +328,7 @@ function renderLive() {
     h += '</div>';
     app.innerHTML = h;
     bindLive(blocks);
+    scheduleTableLayout();
 }
 
 function renderViewer() {
@@ -281,6 +339,7 @@ function renderViewer() {
     app.innerHTML = toolbar() + searchBarHtml() + `<div class="editor-content viewer-mode"><div class="viewer-content">${html}</div></div>`;
     bindToolbar();
     bindSearch();
+    scheduleTableLayout();
 }
 
 function renderSource() {
@@ -390,6 +449,7 @@ function unfocusTa(ta, blockOffset) {
     newEl.addEventListener('click', () => {
         focusBlock(block.id);
     });
+    scheduleTableLayout();
 }
 
 // ── Search logic ───────────────────────────────────────
@@ -742,6 +802,7 @@ function init() {
     };
     updateTheme();
     try { new MutationObserver(updateTheme).observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch(e) {}
+    window.addEventListener('resize', scheduleTableLayout);
 
     pushHistory();
     render();

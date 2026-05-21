@@ -15,7 +15,8 @@
     --link: var(--vscode-textLink-foreground, #3794ff);
     --quote-border: var(--vscode-textBlockQuote-border, #007acc);
     --quote-bg: var(--vscode-textBlockQuote-background, #1a1a1a);
-    --table-max-width: 500px;
+    --table-max-width: 300px;
+    --table-active-max-width: var(--table-max-width);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -122,13 +123,31 @@ html, body {
 }
 
 /* Tables */
-.table-wrap { overflow-x: auto; max-width: 100%; }
-.table-wrap table { width: max-content; }
+.table-wrap {
+    max-width: 100%;
+    margin: 12px 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.table-wrap table {
+    width: max-content;
+    max-width: none;
+    margin: 0;
+}
 .block-html table, .viewer-content table {
     border-collapse: collapse; margin: 12px 0; font-size: .95em;
 }
+.table-wrap.is-overflowing th,
+.table-wrap.is-overflowing td {
+    max-width: var(--table-active-max-width);
+    overflow-wrap: anywhere;
+}
 .block-html th, .viewer-content th,
-.block-html td, .viewer-content td { max-width: var(--table-max-width); }
+.block-html td, .viewer-content td {
+    white-space: normal;
+    word-break: normal;
+    vertical-align: top;
+}
 .block-html th, .viewer-content th {
     background: var(--toolbar-bg); font-weight: 600; text-align: center;
     padding: 8px 18px; border: 1px solid var(--border);

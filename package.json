@@ -46,9 +46,9 @@
         },
         "flowMdEnhance.tableMaxWidth": {
           "type": "number",
-          "default": 500,
+          "default": 300,
           "minimum": 1,
-          "description": "Maximum width in pixels for rendered Markdown table cells."
+          "description": "Preferred maximum width in pixels for table cells when a rendered Markdown table overflows the preview width. Tables that fit naturally are not constrained."
         }
       }
     },
