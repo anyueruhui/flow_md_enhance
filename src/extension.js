@@ -3,6 +3,18 @@ const path = require('path');
 
 const VIEW_TYPE = 'flowMdEnhance.editor';
 const autoOpeningUris = new Set();
+const DEFAULT_TABLE_MAX_WIDTH = 500;
+
+function getFlowMdSettings() {
+    const config = vscode.workspace.getConfiguration('flowMdEnhance');
+    const tableMaxWidth = Number(config.get('tableMaxWidth', DEFAULT_TABLE_MAX_WIDTH));
+    return {
+        defaultMode: config.get('defaultMode', 'live'),
+        tableMaxWidth: Number.isFinite(tableMaxWidth) && tableMaxWidth > 0
+            ? Math.round(tableMaxWidth)
+            : DEFAULT_TABLE_MAX_WIDTH,
+    };
+}
 
 function sameUri(left, right) {
     return Boolean(left && right && left.toString() === right.toString());
@@ -55,6 +67,14 @@ class FlowMdEditorProvider {
     constructor(context) {
         this.context = context;
         this.lastSavedContent = new Map();
+        this.webviews = new Set();
+    }
+
+    postSettingsToWebviews() {
+        const settings = getFlowMdSettings();
+        for (const webview of this.webviews) {
+            webview.postMessage({ type: 'settings', settings });
+        }
     }
 
     async openCustomDocument(uri, _openContext) {
@@ -87,9 +107,10 @@ class FlowMdEditorProvider {
         // M5: read file bytes → base64 directly (skip unnecessary string decode/re-encode)
         const fileBytes = await vscode.workspace.fs.readFile(document.uri);
         const b64 = Buffer.from(fileBytes).toString('base64');
-        const defaultMode = vscode.workspace.getConfiguration('flowMdEnhance').get('defaultMode', 'live');
+        const settings = getFlowMdSettings();
         const fileDir = path.dirname(document.uri.fsPath || document.uri.path);
         const fileDirUri = webviewPanel.webview.asWebviewUri(vscode.Uri.file(fileDir)) + '/';
+        this.webviews.add(webviewPanel.webview);
 
         webviewPanel.webview.html = `<!DOCTYPE html>
 <html lang="en">
@@ -105,7 +126,11 @@ class FlowMdEditorProvider {
 </head>
 <body>
     <div id="app" data-content="${b64}"></div>
-    <script>window.__DEFAULT_MODE__ = "${defaultMode}"; window.__FILE_DIR_URI__ = "${fileDirUri}";</script>
+    <script>
+        window.__DEFAULT_MODE__ = ${JSON.stringify(settings.defaultMode)};
+        window.__FILE_DIR_URI__ = ${JSON.stringify(fileDirUri)};
+        window.__FLOW_MD_SETTINGS__ = ${JSON.stringify(settings)};
+    </script>
     <script src="${scriptUri}?v=${Date.now()}"></script>
 </body>
 </html>`;
@@ -136,6 +161,7 @@ class FlowMdEditorProvider {
             changeSub.dispose();
             watcher.dispose();
             this.lastSavedContent.delete(uriKey);
+            this.webviews.delete(webviewPanel.webview);
         });
     }
 }
@@ -152,6 +178,11 @@ function activate(context) {
         }),
         vscode.window.onDidChangeActiveTextEditor(editor => {
             setTimeout(() => autoOpenMarkdownEditor(editor), 0);
+        }),
+        vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('flowMdEnhance.tableMaxWidth')) {
+                provider.postSettingsToWebviews();
+            }
         })
     );
     setTimeout(() => autoOpenMarkdownEditor(vscode.window.activeTextEditor), 0);

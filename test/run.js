@@ -4,7 +4,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { JSDOM } = require('/tmp/fmd-build/node_modules/jsdom');
+const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..');
 let pass = 0, fail = 0, errors = [];
@@ -16,6 +16,7 @@ function assert(cond, msg) {
 
 const bundleCode = fs.readFileSync(path.join(ROOT, 'out', 'webview', 'main.js'), 'utf8');
 const extCode = fs.readFileSync(path.join(ROOT, 'out', 'extension.js'), 'utf8');
+const styleCode = fs.readFileSync(path.join(ROOT, 'out', 'webview', 'style.css'), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
 async function loadWebview(mdContent, options = {}) {
@@ -23,10 +24,14 @@ async function loadWebview(mdContent, options = {}) {
     const defaultModeScript = options.defaultMode
         ? `<script>window.__DEFAULT_MODE__ = "${options.defaultMode}";</script>`
         : '';
+    const settingsScript = options.settings
+        ? `<script>window.__FLOW_MD_SETTINGS__ = ${JSON.stringify(options.settings)};</script>`
+        : '';
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body class="vscode-dark">
     <div id="app" data-content="${b64}"></div>
     ${defaultModeScript}
+    ${settingsScript}
     <script>${bundleCode}</script>
 </body></html>`;
     const dom = new JSDOM(html, { runScripts: 'dangerously' });
@@ -50,8 +55,8 @@ async function loadWebview(mdContent, options = {}) {
 // ─────────────────────────────────────────────
 function testMarkdown() {
     console.log('\n📋 Test 1: markdown-it HTML 渲染');
-    const MarkdownIt = require('/tmp/fmd-build/node_modules/markdown-it');
-    const TaskCheckbox = require('/tmp/fmd-build/node_modules/markdown-it-task-checkbox');
+    const MarkdownIt = require('markdown-it');
+    const TaskCheckbox = require('markdown-it-task-checkbox');
     const md = new MarkdownIt({ html: true, breaks: true }).use(TaskCheckbox);
     const cases = [
         ['<strong>', '<strong>B</strong>', '<strong>B</strong>'],
@@ -201,6 +206,24 @@ function testEditorAssociationConfig() {
     assert(!packageJson.contributes.configurationDefaults, '不再通过 editorAssociations 影响 diff');
     assert(packageJson.activationEvents.includes('onLanguage:markdown'), 'Markdown 文本打开时激活自动打开逻辑');
     assert(packageJson.contributes.configuration.properties['flowMdEnhance.autoOpenMarkdown'], '提供自动打开开关');
+    assert(packageJson.contributes.configuration.properties['flowMdEnhance.tableMaxWidth'], '提供表格最大宽度设置');
+    assert(packageJson.contributes.configuration.properties['flowMdEnhance.tableMaxWidth'].default === 500, '表格最大宽度默认 500');
+}
+
+async function testLayoutSettings() {
+    console.log('\n📋 Test 6c: 表格宽度与 Viewer 宽度设置');
+    const dom = await loadWebview('|A|B|\n|-|-|\n|1|2|', { settings: { tableMaxWidth: 720 } });
+
+    assert(dom.window.document.documentElement.style.getPropertyValue('--table-max-width') === '720px', '表格最大宽度 CSS 变量生效');
+    assert(styleCode.includes('max-width: var(--table-max-width)'), '表格单元格使用 CSS 变量');
+    assert(styleCode.includes('.editor-content.viewer-mode { padding-left: 0; padding-right: 0; }'), 'Viewer 横向 padding 不影响 90% 宽度');
+    assert(styleCode.includes('.viewer-content { width: 90%; max-width: none; margin: 0 auto; }'), 'Viewer 内容宽度为 90%');
+    dom.window.dispatchEvent(new dom.window.MessageEvent('message', {
+        data: { type: 'settings', settings: { tableMaxWidth: 333 } }
+    }));
+    assert(dom.window.document.documentElement.style.getPropertyValue('--table-max-width') === '333px', '支持运行时设置消息');
+
+    dom.window.close();
 }
 
 // ─────────────────────────────────────────────
@@ -387,6 +410,7 @@ async function main() {
     try { await testInjectedSourceMode(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { testExtension(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { testEditorAssociationConfig(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
+    try { await testLayoutSettings(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { testArtifacts(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { await testDuplicateBlockEdit(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }
     try { await testPurifyAllowlist(); } catch(e) { console.log('  ❌ CRASH:', e.message); fail++; }

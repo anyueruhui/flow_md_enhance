@@ -3,10 +3,15 @@ test/**
 webview/**
 node_modules/**
 dist/**
+.claude/**
+docs/**
 *.tgz
 *.vsix
+*.swp
 .gitignore
 build.js
 dist.sh
+publish.sh
 CLAUDE.md
 test.md
+尾盘买入提醒.md

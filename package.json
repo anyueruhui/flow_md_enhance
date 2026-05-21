@@ -43,6 +43,12 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically reopen normal Markdown text editors with FlowMD Enhance. Diff editors always stay in VS Code's built-in text diff."
+        },
+        "flowMdEnhance.tableMaxWidth": {
+          "type": "number",
+          "default": 500,
+          "minimum": 1,
+          "description": "Maximum width in pixels for rendered Markdown table cells."
         }
       }
     },

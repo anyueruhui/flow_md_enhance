@@ -42,6 +42,7 @@ const purifyConfig = {
 
 // ── State ──────────────────────────────────────────────
 const _initMode = ['live', 'viewer', 'source'].includes(window.__DEFAULT_MODE__) ? window.__DEFAULT_MODE__ : 'live';
+const DEFAULT_TABLE_MAX_WIDTH = 500;
 let mode = _initMode;
 let content = '';
 let focusedBlockId = null;
@@ -105,10 +106,27 @@ function saveImmediate() {
     if (vscodeApi) vscodeApi.postMessage({ type: 'save', content });
 }
 
+function normalizeTableMaxWidth(value) {
+    const width = Number(value);
+    return Number.isFinite(width) && width > 0 ? Math.round(width) : DEFAULT_TABLE_MAX_WIDTH;
+}
+
+function applySettings(settings) {
+    const nextSettings = settings || window.__FLOW_MD_SETTINGS__ || {};
+    document.documentElement.style.setProperty(
+        '--table-max-width',
+        normalizeTableMaxWidth(nextSettings.tableMaxWidth) + 'px'
+    );
+}
+
 // ── Receive extension messages ────────────────────────
 window.addEventListener('message', e => {
     const msg = e.data;
     if (!msg) return;
+    if (msg.type === 'settings') {
+        applySettings(msg.settings);
+        return;
+    }
     if (msg.type === 'init' || msg.type === 'update') {
         const newContent = msg.content || '';
         if (newContent === content) return;
@@ -670,6 +688,8 @@ function autoResize(ta) {
 
 // ── Boot ───────────────────────────────────────────────
 function init() {
+    applySettings();
+
     const el = document.getElementById('app');
     const b64 = el ? el.getAttribute('data-content') : '';
     if (b64) {

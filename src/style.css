@@ -15,6 +15,7 @@
     --link: var(--vscode-textLink-foreground, #3794ff);
     --quote-border: var(--vscode-textBlockQuote-border, #007acc);
     --quote-bg: var(--vscode-textBlockQuote-background, #1a1a1a);
+    --table-max-width: 500px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -127,7 +128,7 @@ html, body {
     border-collapse: collapse; margin: 12px 0; font-size: .95em;
 }
 .block-html th, .viewer-content th,
-.block-html td, .viewer-content td { max-width: 500px; }
+.block-html td, .viewer-content td { max-width: var(--table-max-width); }
 .block-html th, .viewer-content th {
     background: var(--toolbar-bg); font-weight: 600; text-align: center;
     padding: 8px 18px; border: 1px solid var(--border);
@@ -199,7 +200,8 @@ html, body {
 .code-content code { font-family: 'Consolas', monospace; font-size: .9em; line-height: 1.5; }
 
 /* ── Viewer Mode ─────────────────────────────────── */
-.viewer-content { max-width: 800px; margin: 0 auto; }
+.editor-content.viewer-mode { padding-left: 0; padding-right: 0; }
+.viewer-content { width: 90%; max-width: none; margin: 0 auto; }
 
 /* ── Search Bar ────────────────────────────────────── */
 .search-bar {

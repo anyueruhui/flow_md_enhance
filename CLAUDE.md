@@ -19,7 +19,7 @@ node test/run.js
 npx vsce package --no-dependencies
 ```
 
-测试依赖 jsdom、markdown-it、markdown-it-task-checkbox，安装于 `/tmp/fmd-build/node_modules`。测试套件为单文件（`test/run.js`），无单独测试运行器，7 个测试组全部一起执行。
+测试依赖 jsdom、markdown-it、markdown-it-task-checkbox，使用项目根目录 `node_modules`。测试套件为单文件（`test/run.js`），无单独测试运行器，7 个测试组全部一起执行。
 
 无 watch 模式，修改后需手动重新构建。无 TypeScript 编译，源码为纯 JS。未配置 linter。
 
