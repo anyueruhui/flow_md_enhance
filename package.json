@@ -2,7 +2,7 @@
   "name": "flow-md-enhance",
   "displayName": "FlowMD Enhance",
   "description": "WYSIWYG Markdown Editor with full HTML tag support for VS Code",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "linlucifer",
   "icon": "md_logo.png",
   "repository": {
